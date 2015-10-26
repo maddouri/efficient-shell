@@ -15,21 +15,27 @@ A collection of scripts/functions/aliases/etc. is referred to as a **package**.
 `efficient.sh` is similar in usage to [`vim-pathogen`](https://github.com/tpope/vim-pathogen):
 
 1. Clone this repository somewhere on your machine:
-```shell
-git clone https://github.com/maddouri/efficient-shell.git "~/.efficient-shell"
-```
+
+    ```shell
+    git clone https://github.com/maddouri/efficient-shell.git "~/.efficient-shell"
+    ```
+
 2. Add `efficient.sh` to your `.bashrc`:
-```shell
-echo "source ~/.efficient-shell/efficient.sh" >> ~/.bashrc
-```
+
+    ```shell
+    echo "source ~/.efficient-shell/efficient.sh" >> ~/.bashrc
+    ```
+
 3. Restart the shell or simply:
-```shell
-source "~/.efficient-shell/efficient.sh"
-```
+
+    ```shell
+    source "~/.efficient-shell/efficient.sh"
+    ```
+
 4. Done! You can now either:
-    1. Try some of the [pre-installed packages](package),
-    2. [Make your own package](#make-your-own-package),
-    3. Install a package that someone else has made.
+    * Try some of the [pre-installed packages](package),
+    * [Make your own package](#make-your-own-package),
+    * Install a package that someone else has made.
 
 ## Directory Structure
 
@@ -42,6 +48,7 @@ If a package `p` needs to store/access data, it is recommended that it does so i
 A typical package `p` is a directory `${EFFICIENT_SHELL_Root}/package/p` that has a sub-directory `src` with, at least, one shell script file ending with `.sh`.
 
 Our imaginary `p` package can, for instance, have the following, minimal structure:
+
 ```
 ~/.efficient-shell/package/p
 └── src
@@ -68,27 +75,34 @@ Usually, they are put, along with other unrelated aliases, in `~/.bash_aliases`,
 To make this into an `efficient.sh` package, let's call it `efficient-cd`, we just have to:
 
 1. Create a minimal package directory structure:
-```shell
-mkdir --parents ~/.efficient-shell/package/efficient-cd/src
-```
+
+    ```shell
+    mkdir --parents ~/.efficient-shell/package/efficient-cd/src
+    ```
+
 2. Create the script that will be `source`d (notice the `.sh` file extension):
-```shell
-vim ~/.efficient-shell/package/efficient-cd/src/aliases.sh
-# put this in ~/.efficient-shell/package/efficient-cd/src/aliases.sh
-# cd to parent directory
-alias up='cd ..'
-# cd to previous directory
-alias bk='cd -'
-```
+
+    ```shell
+    vim ~/.efficient-shell/package/efficient-cd/src/aliases.sh
+    # put this in ~/.efficient-shell/package/efficient-cd/src/aliases.sh
+    # cd to parent directory
+    alias up='cd ..'
+    # cd to previous directory
+    alias bk='cd -'
+    ```
+
 3. Restart the shell or:
-```shell
-source "~/.efficient-shell/efficient.sh"
-```
+
+    ```shell
+    source "~/.efficient-shell/efficient.sh"
+    ```
+
 4. That's it! The `efficient.sh` package is now loaded. You can try the aliases that it provides:
-```shell
-~ $ up
-/home $ bk
-~ $
-```
+
+    ```shell
+    ~ $ up
+    /home $ bk
+    ~ $
+    ```
 
 This is a very simple example of what you can do in a package, check out the [pre-installed packages](package) for more examples.
