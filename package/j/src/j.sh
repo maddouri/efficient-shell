@@ -96,3 +96,57 @@ EndOfUsage
     fi
 
 }
+
+j_ProgrammableCompletion()
+{
+    # http://eli.thegreenplace.net/2013/12/26/adding-bash-completion-for-your-own-tools-an-example-for-pss
+
+    # COMP_WORDS is an array of words in the current command line.
+    # COMP_CWORD is the index of the current word (the one the cursor is in)
+    local current_index=${COMP_CWORD}
+    local current_word="${COMP_WORDS[COMP_CWORD]}"
+    local previous_word="${COMP_WORDS[COMP_CWORD-1]}"
+
+    local bookmarkDir="${EFFICIENT_SHELL_DataDirectory}/j"
+    local bookmarkFile="${bookmarkDir}/bookmarks"
+    # no need to continue if the bookmars file doesn't exist
+    if [ ! -e "${bookmarkDir}" ]
+    then
+        echo "NOT FOUND [bookmarkFile:${bookmarkFile}]"
+        return 1
+    fi
+
+    local candidate_list
+
+    if [ ${current_index} -eq 1   ] && \
+       [[ "${current_word}" == -* ]]  # option
+    then
+        # possible options
+        candidate_list="--add -a --remove -r --edit -e --help -h"
+        COMPREPLY=($(compgen -W "${candidate_list}" -- ${current_word}))
+    elif [ ${COMP_CWORD} -eq 1             ] || \
+         [ "${previous_word}" = '--remove' ] || \
+         [ "${previous_word}" = '-r'       ]
+    then
+        # get the list of entries
+        candidate_list=$(sed -e 's/^\s*\(\S\+\)\s\+.\+$/\1/' "${bookmarkFile}")
+        COMPREPLY=($(compgen -W "${candidate_list}" -- ${current_word}))
+    # these options don't accept arguments or there is no meaning to completing their first argument
+    elif [ "${previous_word}" = '--edit' ] || \
+         [ "${previous_word}" = '-e'     ] || \
+         [ "${previous_word}" = '--help' ] || \
+         [ "${previous_word}" = '-h'     ] || \
+         [ "${previous_word}" = '--add'  ] || \
+         [ "${previous_word}" = '-a'     ]
+    then
+        COMPREPLY=()
+    else
+        # just list the files in the current directory (default behavior of bash)
+        COMPREPLY=($(/bin/ls))
+    fi
+
+    return 0
+}
+
+# Register j_ProgrammableCompletion to provide completion for the following commands
+complete -F j_ProgrammableCompletion j
