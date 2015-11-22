@@ -1,3 +1,5 @@
+[![License](https://img.shields.io/github/license/maddouri/efficient-shell.svg)](LICENSE)
+
 # efficient.sh
 
 Easy management of scripts, functions and aliases for an efficient experience in the shell.
