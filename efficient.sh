@@ -130,7 +130,10 @@ function EFFICIENT_SHELL_BuildDependencyGraph() {
             # this package has dependencies
             if [ -f "${EFFICIENT_SHELL_ThisPackageDependencyFile}" ] ; then
                 # parse the package's dependency list
-                # the goal is get it in the form "dep1 dep2... this_package"
+                # the goal is get it in the form:
+                #   dep1 this_package
+                #   dep2 this_package
+                #   ...
                 EFFICIENT_SHELL_ThisPackageDependencies=$(
                     cat "${EFFICIENT_SHELL_ThisPackageDependencyFile}"  |
                     sed -e '/^\s*$/d'                                   |  # remove empty/whitespace lines
