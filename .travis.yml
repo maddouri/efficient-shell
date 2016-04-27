@@ -2,4 +2,5 @@
 sudo: false
 
 script:
+  - shopt -s expand_aliases
   - source efficient.sh
