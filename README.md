@@ -2,6 +2,11 @@
 
 [![License](https://img.shields.io/github/license/maddouri/efficient-shell.svg?style=flat-square)](LICENSE)
 
+| Branch | Build Status |
+| ---- | ---- |
+| master | [![](https://img.shields.io/travis/maddouri/efficient-shell/master.svg?style=flat-square)](https://travis-ci.org/maddouri/efficient-shell) |
+| develop | [![](https://img.shields.io/travis/maddouri/efficient-shell/develop.svg?style=flat-square)](https://travis-ci.org/maddouri/efficient-shell) |
+
 Easy management of scripts, functions and aliases for an efficient experience in the shell.
 
 <!-- START doctoc generated TOC please keep comment here to allow auto update -->
