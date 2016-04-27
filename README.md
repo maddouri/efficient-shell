@@ -1,8 +1,19 @@
-[![License](https://img.shields.io/github/license/maddouri/efficient-shell.svg)](LICENSE)
+# Efficient Shell
 
-# efficient.sh
+[![License](https://img.shields.io/github/license/maddouri/efficient-shell.svg?style=flat-square)](LICENSE)
 
 Easy management of scripts, functions and aliases for an efficient experience in the shell.
+
+<!-- START doctoc generated TOC please keep comment here to allow auto update -->
+<!-- DON'T EDIT THIS SECTION, INSTEAD RE-RUN doctoc TO UPDATE -->
+
+
+- [Basics](#basics)
+- [Usage](#usage)
+- [Directory Structure](#directory-structure)
+- [Make Your Own Package](#make-your-own-package)
+
+<!-- END doctoc generated TOC please keep comment here to allow auto update -->
 
 ## Basics
 
