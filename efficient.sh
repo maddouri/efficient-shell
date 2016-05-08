@@ -9,21 +9,21 @@ alias EFFICIENT_SHELL_Log='test ${EFFICIENT_SHELL_Verbose} && echo -e "EFFICIENT
 alias EFFICIENT_SHELL_Error='>&2 echo -e "EFFICIENT_SHELL @ ${FUNCNAME}:"'
 
 # path to efficient.sh (i.e. this file)
-EFFICIENT_SHELL_MainScript=$(readlink -f "${BASH_SOURCE[0]}")
+readonly EFFICIENT_SHELL_MainScript=$(readlink -f "${BASH_SOURCE[0]}")
 if [ ! -f "${EFFICIENT_SHELL_MainScript}" ] ; then
     EFFICIENT_SHELL_Error "EFFICIENT_SHELL_MainScript:[${EFFICIENT_SHELL_MainScript}] is not a script."
     return 1
 fi
 
 # root directory of efficient_shell
-EFFICIENT_SHELL_Root="$(readlink -f $(dirname ${EFFICIENT_SHELL_MainScript}))"
+readonly EFFICIENT_SHELL_Root="$(readlink -f $(dirname ${EFFICIENT_SHELL_MainScript}))"
 if [ ! -d "${EFFICIENT_SHELL_Root}" ] ; then
     EFFICIENT_SHELL_Error "EFFICIENT_SHELL_Root:[${EFFICIENT_SHELL_Root}] is not a directory."
     return 2
 fi
 
 # the directory where packages are installed
-EFFICIENT_SHELL_PackageDirectory="${EFFICIENT_SHELL_Root}/package"
+readonly EFFICIENT_SHELL_PackageDirectory="${EFFICIENT_SHELL_Root}/package"
 test ! -e "${EFFICIENT_SHELL_PackageDirectory}" && mkdir --parents "${EFFICIENT_SHELL_PackageDirectory}"
 if [ ! -d "${EFFICIENT_SHELL_PackageDirectory}" ] ; then
     EFFICIENT_SHELL_Error "EFFICIENT_SHELL_PackageDirectory:[${EFFICIENT_SHELL_PackageDirectory}] is not a directory."
@@ -31,7 +31,7 @@ if [ ! -d "${EFFICIENT_SHELL_PackageDirectory}" ] ; then
 fi
 
 # the (preferred) directory where packages store their data
-EFFICIENT_SHELL_DataDirectory="${EFFICIENT_SHELL_Root}/data"
+readonly EFFICIENT_SHELL_DataDirectory="${EFFICIENT_SHELL_Root}/data"
 test ! -e "${EFFICIENT_SHELL_DataDirectory}" && mkdir --parents "${EFFICIENT_SHELL_DataDirectory}"
 if [ ! -d "${EFFICIENT_SHELL_DataDirectory}" ] ; then
     EFFICIENT_SHELL_Error "EFFICIENT_SHELL_DataDirectory:[${EFFICIENT_SHELL_DataDirectory}] is not a directory."
@@ -40,16 +40,19 @@ fi
 
 # package list
 EFFICIENT_SHELL_Packages=""
+EFFICIENT_SHELL_DependencyGraph=""
+EFFICIENT_SHELL_PackageLoadingOrder=""
+EFFICIENT_SHELL_MissingPackages=""
 
 # the package config file that has to be present in the package directory
-EFFICIENT_SHELL_PackageConfigFileName="efficient.cfg"
+readonly EFFICIENT_SHELL_PackageConfigFileName="efficient.cfg"
 # package properties (to put in the config file)
-EFFICIENT_SHELL_PackageConfigProperty_Name="name"          # package name (not required to be the same as the package directory's)
-EFFICIENT_SHELL_PackageConfigProperty_Main="main"          # main file to `source`
-EFFICIENT_SHELL_PackageConfigProperty_Depend="depend"      # (optional) space-separated list of packages on which the package depends
+readonly EFFICIENT_SHELL_PackageConfigProperty_Name="name"          # package name (not required to be the same as the package directory's)
+readonly EFFICIENT_SHELL_PackageConfigProperty_Main="main"          # main file to `source`
+readonly EFFICIENT_SHELL_PackageConfigProperty_Depend="depend"      # (optional) space-separated list of packages on which the package depends
 # other properties (deduced/don't appear in the config file)
-EFFICIENT_SHELL_PackageConfigProperty_Directory="dir"      # package directory
-EFFICIENT_SHELL_PackageConfigProperty_ConfigFile="config"  # config file path
+readonly EFFICIENT_SHELL_PackageConfigProperty_Directory="dir"      # package directory
+readonly EFFICIENT_SHELL_PackageConfigProperty_ConfigFile="config"  # config file path
 
 # helpful functions for processing whitespace
 # @note use with pipes
