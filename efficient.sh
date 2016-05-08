@@ -43,13 +43,25 @@ EFFICIENT_SHELL_Packages=""
 
 # the package config file that has to be present in the package directory
 EFFICIENT_SHELL_PackageConfigFileName="efficient.cfg"
-# package properties
-EFFICIENT_SHELL_PackageConfigProperty_Name="name"
-EFFICIENT_SHELL_PackageConfigProperty_Main="main"
-EFFICIENT_SHELL_PackageConfigProperty_Depend="depend"
-# meta properties
-EFFICIENT_SHELL_PackageConfigProperty_Directory="dir"
-EFFICIENT_SHELL_PackageConfigProperty_ConfigFile="config"
+# package properties (to put in the config file)
+EFFICIENT_SHELL_PackageConfigProperty_Name="name"          # package name (not required to be the same as the package directory's)
+EFFICIENT_SHELL_PackageConfigProperty_Main="main"          # main file to `source`
+EFFICIENT_SHELL_PackageConfigProperty_Depend="depend"      # (optional) space-separated list of packages on which the package depends
+# other properties (deduced/don't appear in the config file)
+EFFICIENT_SHELL_PackageConfigProperty_Directory="dir"      # package directory
+EFFICIENT_SHELL_PackageConfigProperty_ConfigFile="config"  # config file path
+
+# helpful functions for processing whitespace
+# @note use with pipes
+function EFFICIENT_SHELL_FactorSpaces() {
+    sed -e 's/[[:space:]]\+/ /g'
+}
+function EFFICIENT_SHELL_TrimSpaces() {
+    sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//'
+}
+function EFFICIENT_SHELL_FactorAndTrimSpaces() {
+    sed -e 's/[[:space:]]\+/ /g' -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//'
+}
 
 # EFFICIENT_SHELL_ForEachPackage <function>
 # calls <function> for each package directory
@@ -105,40 +117,6 @@ function EFFICIENT_SHELL_LoadPackage() {
     done
 
     EFFICIENT_SHELL_Log "loaded  package [${pckName}]"
-}
-
-## EFFICIENT_SHELL_PrintHelp <pckName> <cmdName>
-# function EFFICIENT_SHELL_PrintHelp()
-# {
-#     local pckDir="${EFFICIENT_SHELL_PackageDirectory}/$1"
-#     local cmdName="$2"
-#
-#     local docFile="${pckDir}/doc/${cmdName}.md"
-#
-#     #
-#     #pandoc "${docFile}" | w3m -dump -T text/html | cat
-#     cat "${docFile}"
-# }
-
-function EFFICIENT_SHELL_ParsePackage() {  # ${FUNCNAME} <pckDir>
-    local pckDir="$1"
-    local pckName="$(basename ${pckDir})"
-    local cfgFile="${pckDir}/efficient.cfg"
-    if [ ! -f "${cfgFile}" ] ; then
-        EFFICIENT_SHELL_Error "config file not found for [${pckName}]"
-        return 1;
-    fi
-
-    local main
-    local depend
-
-    source "${cfgFile}"
-
-    declare -A pck=( ["main"]="${main}" ["depend"]="${depend}" )
-    EFFICIENT_SHELL_Packages["${pckName}"]=${pck["main"]}
-
-    EFFICIENT_SHELL_Log "loading [${pckName}]"
-    EFFICIENT_SHELL_Log "loaded  [${pckName}] : main:" ${EFFICIENT_SHELL_Packages["${pckName}"]}
 }
 
 function EFFICIENT_SHELL_GetPackageInfo_FromConfigFile() {  # ${FUNCNAME} <configFile> <infoName>
@@ -211,8 +189,9 @@ function EFFICIENT_SHELL_GetPackageInfo() {  # ${FUNCNAME} <pckName> [<infoName>
     if [ -n "${infoName}" ] ; then
         local info=$(
             EFFICIENT_SHELL_ListPackages "${EFFICIENT_SHELL_PackageConfigProperty_Name}" "${infoName}" |
-            grep "^\s*${pckName}" |
-            sed -e "s/${pckName}//" -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//'
+            grep "^\s*${pckName}"   |
+            sed -e "s/${pckName}//" |
+            EFFICIENT_SHELL_TrimSpaces
         )
         echo "${info}"
     else
@@ -224,49 +203,39 @@ function EFFICIENT_SHELL_GetPackageInfo() {  # ${FUNCNAME} <pckName> [<infoName>
     fi
 }
 
+# generates a list of installed packages in EFFICIENT_SHELL_Packages:
+#  pck1
+#  pck2
+#  ...
 function EFFICIENT_SHELL_CreatePackageList() {
     EFFICIENT_SHELL_Packages=$(
         EFFICIENT_SHELL_ListPackages "name" |  # get the package list
-        #tr '\n' ' '                         |  # join lines
-        sed -e 's/[[:space:]]\+/ /g' -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//'
+        EFFICIENT_SHELL_FactorAndTrimSpaces
     )
-    EFFICIENT_SHELL_Log "EFFICIENT_SHELL_Packages:\n${EFFICIENT_SHELL_Packages}"
+    EFFICIENT_SHELL_Log "EFFICIENT_SHELL_Packages:\n$(tr '\n' ' ' <<< ""${EFFICIENT_SHELL_Packages}"")"
 }
 
 # finds the dependencies between the installed packages
-# outputs the dependency graph in ${EFFICIENT_SHELL_DependencyGraph}
+# outputs the dependency graph in EFFICIENT_SHELL_DependencyGraph
 # the dependency graph is formatted according to the format accepted by tsort https://en.wikipedia.org/wiki/Tsort
 function EFFICIENT_SHELL_BuildDependencyGraph() {
-    ## build dependency graph
-
-    # list of package directories
-    local EFFICIENT_SHELL_PackageDirectories=${EFFICIENT_SHELL_PackageDirectory}/*/
-
     # reset dependency graph (global variable)
     EFFICIENT_SHELL_DependencyGraph=""
 
-    # call the function on each package directory
-    local EFFICIENT_SHELL_ThisPackageDirectory
-    local EFFICIENT_SHELL_ThisPackageName
-    local EFFICIENT_SHELL_ThisPackageDependencies
-    local EFFICIENT_SHELL_ThisPackageDependencyFile
-
-    # nexgen
     local pckName
-
     for pckName in ${EFFICIENT_SHELL_Packages} ; do
 
-        EFFICIENT_SHELL_Log "Processing [${pckName}]"
+        #EFFICIENT_SHELL_Log "Processing [${pckName}]"
 
         # get the dependency list in the form "dep1 dep2 ..."
         # this way, it can be iterated over
         local pckDepend=$(
             EFFICIENT_SHELL_GetPackageInfo "${pckName}" "${EFFICIENT_SHELL_PackageConfigProperty_Depend}"  |
             sed -e "s/${pckName}//" |
-            sed -e 's/[[:space:]]\+/ /g' -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//'  # trim spaces
+            EFFICIENT_SHELL_FactorAndTrimSpaces
         )
 
-        EFFICIENT_SHELL_Log "pckDepend [${pckDepend}]"
+        #EFFICIENT_SHELL_Log "pckDepend [${pckDepend}]"
 
         # this package has dependencies
         if [ -n "${pckDepend}" ] ; then
@@ -277,16 +246,14 @@ function EFFICIENT_SHELL_BuildDependencyGraph() {
             #   ...
             for d in ${pckDepend} ; do  # don't use "${depend}"  (i.e. no quotes)
                 # append the dependency list to the dependency graph
-                EFFICIENT_SHELL_DependencyGraph+=$'\n'
-                EFFICIENT_SHELL_DependencyGraph+="${d} ${pckName}"
+                EFFICIENT_SHELL_DependencyGraph+=$'\n'"${d} ${pckName}"
             done
         # this package doesn't have dependencies
         else
             # https://en.wikipedia.org/wiki/Tsort#Usage_notes
             # Pairs of identical items indicate presence of a vertex, but not ordering
             # (so the following represents one vertex without edges):
-            EFFICIENT_SHELL_DependencyGraph+=$'\n'
-            EFFICIENT_SHELL_DependencyGraph+="${pckName} ${pckName}"
+            EFFICIENT_SHELL_DependencyGraph+=$'\n'"${pckName} ${pckName}"
         fi
 
     done
@@ -312,9 +279,7 @@ function EFFICIENT_SHELL_CheckPackages() {
     local pckName
     for pckName in ${EFFICIENT_SHELL_PackageLoadingOrder} ; do
         local pckInfo=$(EFFICIENT_SHELL_GetPackageInfo "${pckName}")
-        if [ -n "${pckInfo}" ] ; then
-            EFFICIENT_SHELL_Log "found [${pckName}]"
-        else
+        if [ ! -n "${pckInfo}" ] ; then
             EFFICIENT_SHELL_MissingPackages+=$'\n'
             EFFICIENT_SHELL_MissingPackages+="${pckName}"
             EFFICIENT_SHELL_Error "missing [${pckName}]"
@@ -325,30 +290,29 @@ function EFFICIENT_SHELL_CheckPackages() {
         EFFICIENT_SHELL_Error "some packages are missing [$(tr '\n' ' ' <<< ${EFFICIENT_SHELL_MissingPackages})]"
         return 1
     fi
-
 }
 
-# calls EFFICIENT_SHELL_LoadPackage on each package directory
-function EFFICIENT_SHELL_LoadPackages {
+# loads the packages in the order specified in EFFICIENT_SHELL_PackageLoadingOrder
+function EFFICIENT_SHELL_LoadPackages() {
     local pckName
     for pckName in ${EFFICIENT_SHELL_PackageLoadingOrder} ; do
         local pckDir=$(EFFICIENT_SHELL_GetPackageInfo "${pckName}" "${EFFICIENT_SHELL_PackageConfigProperty_Directory}")
         local pckMainInfo=$(EFFICIENT_SHELL_GetPackageInfo "${pckName}" "${EFFICIENT_SHELL_PackageConfigProperty_Main}")
         local pckMain="${pckDir}/${pckMainInfo}"
 
-        EFFICIENT_SHELL_Log "loading [pckMain:${pckMain}]"
+        EFFICIENT_SHELL_Log "loading [${pckName}]"
         if [ -f "${pckMain}" ] ; then
             source "${pckMain}"
-            EFFICIENT_SHELL_Log "[pckMain:${pckMain}] loaded"
         else
             EFFICIENT_SHELL_Error "[pckMain:${pckMain}] not found"
             return 1
         fi
+        EFFICIENT_SHELL_Log "loaded  [${pckName}]"
     done
 }
 
-# EFFICIENT_SHELL_Init
-# initializes the efficiency
+
+# initializes the efficiency!
 function EFFICIENT_SHELL_Init() {
     # populate EFFICIENT_SHELL_Packages
     EFFICIENT_SHELL_CreatePackageList    || return 10
@@ -365,20 +329,6 @@ function EFFICIENT_SHELL_Init() {
     # load packages
     EFFICIENT_SHELL_LoadPackages         || return 14
 }
-
-# lists the available packages
-# @todo fix this
-# function lsefficient() {
-#     # https://stackoverflow.com/a/2924755/865719
-#     local BT=$(tput bold)  # bold text
-#     local NT=$(tput sgr0)  # normal text
-#
-#     echo
-#     echo "List of ${BT}efficient-shell${NT} packages"
-#     echo
-#     #@todo list packages here
-#     echo
-# }
 
 # init
 EFFICIENT_SHELL_Init
