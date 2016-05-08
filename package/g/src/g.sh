@@ -89,7 +89,7 @@ EndOfUsage
             fi
         ;;
         *)
-            >&2 echo "Unknown [${opt}]"
+            >&2 echo "Unknown [$@]"
             >&2 echo "${USAGE}"
             return 7
         ;;
