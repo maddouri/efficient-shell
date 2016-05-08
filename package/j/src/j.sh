@@ -13,10 +13,10 @@ Usage:
 EndOfUsage
 
     # create the bookmark file if it doesn't exist
-    local bookmarkDir="${EFFICIENT_SHELL_DataDirectory}/j"
-    test ! -e "${bookmarkDir}"  && mkdir --parents "${bookmarkDir}"
+    local bookmarkDir="$(dirname ${BASH_SOURCE[0]})/../data"
+    test ! -e "${bookmarkDir}" && mkdir --parents "${bookmarkDir}"
     local bookmarkFile="${bookmarkDir}/bookmarks"
-    test ! -f "${bookmarkFile}" && echo " " > "${bookmarkFile}"
+    test ! -f "${bookmarkFile}" && touch "${bookmarkFile}"
 
     local reEntry="\S\+"
     local rePath="\S.*"
@@ -40,7 +40,7 @@ EndOfUsage
             ${EDITOR} "${bookmarkFile}"
         elif [ "${arg}" = "--help" -o "${arg}" = "-h" ]
         then
-            cat "${EFFICIENT_SHELL_PackageDirectory}/j/README.md"
+            cat "$(dirname ${BASH_SOURCE[0]})/../README.md"
         else
             local entry="$1"
 
@@ -107,7 +107,7 @@ j_ProgrammableCompletion()
     local current_word="${COMP_WORDS[COMP_CWORD]}"
     local previous_word="${COMP_WORDS[COMP_CWORD-1]}"
 
-    local bookmarkDir="${EFFICIENT_SHELL_DataDirectory}/j"
+    local bookmarkDir="$(dirname ${BASH_SOURCE[0]})/../data"
     local bookmarkFile="${bookmarkDir}/bookmarks"
     # no need to continue if the bookmars file doesn't exist
     if [ ! -e "${bookmarkDir}" ]

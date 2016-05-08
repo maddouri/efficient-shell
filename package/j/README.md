@@ -29,7 +29,7 @@ then calls `g` to go to the corresponding location.
 
 # FILES
 
-* `${EFFICIENT_SHELL_Root}/data/j/bookmarks`
+* `<INSTALL_DIR>/data/bookmarks`
     * the _bookmarks_ file, contains the `entry path` list of bookmarks
 
 # SEE ALSO

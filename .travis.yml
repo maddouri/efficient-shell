@@ -2,5 +2,5 @@
 sudo: false
 
 script:
-  - shopt -s expand_aliases  # https://github.com/gipi/OHR/commit/bc651eb8adc6b14a01e2d56d3cff8dd545e40102#diff-354f30a63fb0907d4ad57269548329e3R15
+  - shopt -s expand_aliases  # https://git.io/vwhM8
   - source efficient.sh

@@ -15,7 +15,7 @@ Easy management of scripts, functions and aliases for an efficient experience in
 
 - [Basics](#basics)
 - [Usage](#usage)
-- [Directory Structure](#directory-structure)
+- [Packages Structure](#packages-structure)
 - [Make Your Own Package](#make-your-own-package)
 
 <!-- END doctoc generated TOC please keep comment here to allow auto update -->
@@ -34,19 +34,19 @@ A collection of scripts/functions/aliases/etc. is referred to as a **package**.
 
 1. Clone this repository somewhere on your machine:
 
-    ```shell
+    ```sh
     git clone https://github.com/maddouri/efficient-shell.git "~/.efficient-shell"
     ```
 
 2. Add `efficient.sh` to your `.bashrc`:
 
-    ```shell
-    echo "source ~/.efficient-shell/efficient.sh" >> ~/.bashrc
+    ```sh
+    echo "source ~/.efficient-shell/efficient.sh" >> "~/.bashrc"
     ```
 
 3. Restart the shell or simply:
 
-    ```shell
+    ```sh
     source "~/.efficient-shell/efficient.sh"
     ```
 
@@ -55,25 +55,49 @@ A collection of scripts/functions/aliases/etc. is referred to as a **package**.
     * [Make your own package](#make-your-own-package),
     * Install a package that someone else has made.
 
-## Directory Structure
+## Packages Structure
 
 `efficient.sh` assumes that packages are stored in the `${EFFICIENT_SHELL_Root}/package` directory.
-`${EFFICIENT_SHELL_Root}` being the directory where `efficient.sh` has been installed.
+`${EFFICIENT_SHELL_Root}` is the directory where `efficient.sh` has been installed.
 (e.g. `~/.efficient-shell` in the usage example)
 
-If a package `p` needs to store/access data, it is recommended that it does so in `${EFFICIENT_SHELL_Root}/data/p`.
+A typical package `p` is a directory `${EFFICIENT_SHELL_Root}/package/p` that has a configuration file named `efficient.cfg` and, at least, one shell script file to be `source`'d when the shell starts.
 
-A typical package `p` is a directory `${EFFICIENT_SHELL_Root}/package/p` that has a sub-directory `src` with, at least, one shell script file ending with `.sh`.
-
-Our imaginary `p` package can, for instance, have the following, minimal structure:
+Our example's `p` package can, for instance, have the following, minimal structure:
 
 ```
 ~/.efficient-shell/package/p
-└── src
-    └── pp.sh
+├── efficient.cfg
+└── pp.sh
 ```
 
-In this package `pp.sh` can contain a useful [alias](http://tldp.org/LDP/abs/html/aliases.html), a complex [function](http://tldp.org/LDP/abs/html/functions.html) or anything that you need `efficient.sh` to [`source`](http://www.tldp.org/HOWTO/Bash-Prompt-HOWTO/x237.html).  Check out the [pre-installed packages](package) for some examples.
+In this package, `pp.sh` can contain a useful [alias](http://tldp.org/LDP/abs/html/aliases.html), a complex [function](http://tldp.org/LDP/abs/html/functions.html) or anything that you need `efficient.sh` to [`source`](http://www.tldp.org/HOWTO/Bash-Prompt-HOWTO/x237.html).  Check out the [pre-installed packages](package) for some examples.
+
+The `efficient.cfg` configuration file, is a simple list of `<key>="<value>"` pairs that tells efficient-shell how to load the package. Here is a complete example:
+
+```sh
+# efficient.sh
+# list of <key>="<value>" pairs
+# <key> does NOT contain spaces
+# <key> is NOT surrounded by quotes
+# = MAY be surrounded by spaces
+# <value> MUST be surrounded by quotes
+
+# package name (does NOT have to be the same as the directory name)
+# the package name must NOT contain spaces
+name="p"
+# main script file to source
+# relative path to the main script
+main="pp.sh"
+# dependencies to other efficient-shell packages
+# space-separated list of dependencies
+# e.g. dependency to pck1, pck2 and pck3
+#      depend="pck1 pck2 pck3"
+# e.g. no dependencies
+#      depend=""
+depend=""
+
+```
 
 <a name="make-your-own-package"></a>
 ## Make Your Own Package
@@ -81,7 +105,7 @@ In this package `pp.sh` can contain a useful [alias](http://tldp.org/LDP/abs/htm
 This is a walkthrough on how to make a simple package. We'll assume that `efficient.sh` is installed in `~/.efficient-shell`.
 
 Suppose you have a collection of handy aliases, related to a particular task, that you use frequently:
-```shell
+```sh
 # cd to parent directory
 alias up='cd ..'
 # cd to previous directory
@@ -94,13 +118,13 @@ To make this into an `efficient.sh` package, let's call it `efficient-cd`, we ju
 
 1. Create a minimal package directory structure:
 
-    ```shell
+    ```sh
     mkdir --parents ~/.efficient-shell/package/efficient-cd/src
     ```
 
-2. Create the script that will be `source`d (notice the `.sh` file extension):
+1. Create the script that will be `source`'d:
 
-    ```shell
+    ```sh
     vim ~/.efficient-shell/package/efficient-cd/src/aliases.sh
     # put this in ~/.efficient-shell/package/efficient-cd/src/aliases.sh
     # cd to parent directory
@@ -109,15 +133,34 @@ To make this into an `efficient.sh` package, let's call it `efficient-cd`, we ju
     alias bk='cd -'
     ```
 
-3. Restart the shell or:
+1. Add the package configuration file:
 
-    ```shell
+    ```sh
+    vim ~/.efficient-shell/package/efficient-cd/efficient.cfg
+    # put this in ~/.efficient-shell/package/efficient-cd/efficient.cfg
+    main="efficient-cd"
+    main="src/aliases.sh"
+    depend=""
+    ```
+
+1. The package directory should now look like this:
+
+    ```
+    ~/.efficient-shell/package/efficient-cd
+    ├── efficient.cfg
+    └── src
+        └── aliases.sh
+    ```
+
+1. Restart the shell or:
+
+    ```sh
     source "~/.efficient-shell/efficient.sh"
     ```
 
-4. That's it! The `efficient.sh` package is now loaded. You can try the aliases that it provides:
+1. That's it! The `efficient.sh` package is now loaded. You can try the aliases that it provides:
 
-    ```shell
+    ```sh
     ~ $ up
     /home $ bk
     ~ $
