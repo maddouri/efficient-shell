@@ -17,7 +17,7 @@ EndOfUsage
     then
         if [ "$1" = "-h" -o "$1" = "--help" ]  # help
         then
-            cat "${EFFICIENT_SHELL_PackageDirectory}/g/README.md"
+            cat "$(dirname ${BASH_SOURCE[0]})/../README.md"
         elif [ "$1" = "-" ]                    # go to ${OLDPWD}
         then
             cd -
