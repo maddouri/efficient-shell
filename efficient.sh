@@ -163,6 +163,11 @@ function EFFICIENT_SHELL_GetPackageInfo_FromConfigFile() {  # ${FUNCNAME} <confi
 }
 
 function EFFICIENT_SHELL_ListPackages() {  # ${FUNCNAME} <fields> [<field>...]
+    if [ $# -eq 0 ] ; then
+        EFFICIENT_SHELL_Error "Valid fields:" $EFFICIENT_SHELL_PackageConfigProperty_{Name,Main,Depend,Directory,ConfigFile}
+        return 1
+    fi
+
     #local columnSeparator=","
     local columnSeparator=$'\t'
     local resultString=""
