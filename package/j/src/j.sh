@@ -1,8 +1,8 @@
 
-function j()
-{
+# requires "column" from "sudo apt-get install bsdmainutils"
+function j() {
     local USAGE
-read -r -d '' USAGE << EndOfUsage
+    read -r -d '' USAGE << EndOfUsage
 Usage:
     j
     j entry
@@ -11,6 +11,11 @@ Usage:
     j --edit|-e
     j --help|-h
 EndOfUsage
+
+    local OPTS
+    OPTS=$(getopt -o 'a:r:eh' -l 'add:,remove:,edit,help' -n "${FUNCNAME}" -- "$@")
+    if [ $? -ne 0 ] ; then >&2 echo "${USAGE}" ;  return 1 ; fi
+    eval set -- "${OPTS}"
 
     # create the bookmark file if it doesn't exist
     local bookmarkDir="$(dirname ${BASH_SOURCE[0]})/../data"
@@ -24,77 +29,91 @@ EndOfUsage
     local reSeparator="\s\+"
     local reSuffix="\s*$"
 
-    if [ "$#" -eq 0 ]  # j : show bookmarks
-    then
-        # print the bookmarks file
-        local delim=":"
-        sed -n -e "s/${rePrefix}\(${reEntry}\)${reSeparator}\(${rePath}\)${reSuffix}/\1${delim}\2/p" "${bookmarkFile}" \
-        | column -s ${delim} -t \
-        | sort
-
-    elif [ "$#" -eq 1 ]  # j entry
-    then
-        local arg="$1"
-        if [ "${arg}" = "--edit" -o "${arg}" = "-e" ]
-        then
-            ${EDITOR} "${bookmarkFile}"
-        elif [ "${arg}" = "--help" -o "${arg}" = "-h" ]
-        then
-            cat "$(dirname ${BASH_SOURCE[0]})/../README.md"
-        else
-            local entry="$1"
-
-            # get the first occurence of the entry
-            local destination=$(sed -n -e "0,/${rePrefix}${entry}${reSeparator}\(${rePath}\)${reSuffix}/s//\1/p" "${bookmarkFile}")
-
-            # go there
-            g "${destination}"
-        fi
-
-    elif [ "$#" -eq 2 ]  # j remove entry
-    then
-        local action="$1"
-        local entry="$2"
-
-        if [ "${action}" = "--remove" -o "${action}" = "-r" ]
-        then
-            # remove all the lines containing the entry
-            sed -i -e "/${rePrefix}${entry}${reSeparator}\(${rePath}\)${reSuffix}/d" "${bookmarkFile}"
-        else
-            echo "Wrong argument"
-            echo "${USAGE}"
-            return 2
-        fi
-    elif [ "$#" -eq 3 ]  # j add entry path
-    then
-        local action="$1"
-        local entry="$2"
-        #local path=$(readlink -f "$3")  # resolve symlinks
-        local path=$(g "$3"  >/dev/null 2>&1 && pwd && cd - >/dev/null 2>&1)  # don't resolve symlinks
-
-        if [ "${action}" = "--add" -o "${action}" = "-a" ]
-        then
-            # remove any previous entry
-            j --remove ${entry}
-            # append the new entry (don't use "echo -e")
-            echo                    >> "${bookmarkFile}"
-            echo "${entry} ${path}" >> "${bookmarkFile}"
-            # reformat the file
-            local delim=":"
-            sed -n -e "s/${rePrefix}\(${reEntry}\)${reSeparator}\(${rePath}\)${reSuffix}/\1${delim}\2/p" "${bookmarkFile}" \
-            | column -s ${delim} -t \
-            | sort -o "${bookmarkFile}"
-        else
-            echo "Wrong argument"
-            echo "${USAGE}"
-            return 3
-        fi
-    else
-        echo "Wrong input"
-        echo "${USAGE}"
-        return 4
-    fi
-
+    case "$1" in
+        '--')
+            shift  # get rid of '--'
+            # j : pretty print the bookmarks file
+            if [ $# -eq 0 ] ; then
+                local delim=":"
+                sed -n -e "s/${rePrefix}\(${reEntry}\)${reSeparator}\(${rePath}\)${reSuffix}/\1${delim}\2/p" "${bookmarkFile}" \
+                | column -s ${delim} -t \
+                | sort
+            # j <entry> : jump to the bookmark
+            elif [ $# -eq 1 ] ; then
+                local entry="$1"
+                # get the first occurence of the entry
+                local destination=$(sed -n -e "0,/${rePrefix}${entry}${reSeparator}\(${rePath}\)${reSuffix}/s//\1/p" "${bookmarkFile}")
+                if [ -n "${destination}" ] ; then
+                    # go there
+                    g "${destination}"
+                else
+                    >&2 echo "[${entry}] not found"
+                    return 2
+                fi
+            else
+                >&2 echo "${USAGE}"
+                return 3
+            fi
+        ;;
+        '--add'|'-a')
+            echo "[@:$@]"
+            if [ $# -eq 4 -a "$3" = '--' ] ; then  # --add <entry> -- <path>
+                local entry="$2"
+                local path0="$4"
+                #local path=$(readlink -f "${path0}")  # resolve symlinks
+                local path=$(g "${path0}"  >/dev/null 2>&1 && pwd && cd - >/dev/null 2>&1)  # do NOT resolve symlinks
+                # remove any previous entry
+                j --remove "${entry}"
+                # append the new entry (don't use "echo -e")
+                echo                    >> "${bookmarkFile}"
+                echo "${entry} ${path}" >> "${bookmarkFile}"
+                # reformat the file
+                local delim=":"
+                sed -n -e "s/${rePrefix}\(${reEntry}\)${reSeparator}\(${rePath}\)${reSuffix}/\1${delim}\2/p" "${bookmarkFile}" \
+                | column -s ${delim} -t \
+                | sort -o "${bookmarkFile}"
+            else
+                >&2 echo "${USAGE}"
+                return 4
+            fi
+        ;;
+        '--remove'|'-r')
+            if [ $# -eq 3 -a "$3" = '--' ] ; then
+                local entry="$2"
+                # remove all the lines containing the entry
+                sed -i -e "/${rePrefix}${entry}${reSeparator}\(${rePath}\)${reSuffix}/d" "${bookmarkFile}"
+            else
+                >&2 echo "${USAGE}"
+                return 5
+            fi
+        ;;
+        '--edit'|'-e')
+            if [ $# -eq 2 -a "$2" = '--' ] ; then
+                if [ -n "${EDITOR}" ] ; then
+                    "${EDITOR}" "${bookmarkFile}"
+                else
+                    >&2 echo "EDITOR not defined"
+                    return 6
+                fi
+            else
+                >&2 echo "${USAGE}"
+                return 7
+            fi
+        ;;
+        '--help'|'-h')
+            if [ $# -eq 2 -a "$2" = '--' ] ; then
+                cat "$(dirname ${BASH_SOURCE[0]})/../README.md"
+            else
+                >&2 echo "${USAGE}"
+                return 8
+            fi
+        ;;
+        *)
+            >&2 echo "Unknown [${opt}]"
+            >&2 echo "${USAGE}"
+            return 9
+        ;;
+    esac
 }
 
 j_ProgrammableCompletion()
