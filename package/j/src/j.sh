@@ -1,5 +1,49 @@
 
-# requires "column" from "sudo apt-get install bsdmainutils"
+# prints j's bookmarks file with aligned columns and sorted lines
+# replacement for "column" from "sudo apt-get install bsdmainutils"
+# customized for work with j's bookmarks file
+# for use in j()
+function j_prettyprint() {
+    local delim="$1"
+
+    # get the bookmarks file's path
+    local bookmarkDir="$(dirname ${BASH_SOURCE[0]})/../data"
+    local bookmarkFile="${bookmarkDir}/bookmarks"
+    # no need to continue if the bookmarks file doesn't exist
+    if [ ! -e "${bookmarkDir}" ] ; then
+        >&2 echo "NOT FOUND [bookmarkFile:${bookmarkFile}]"
+        return 1
+    fi
+
+    # regex for parsing the bookmarks file
+    local reEntry="\S\+"
+    local rePath="\S.*"
+    local rePrefix="^\s*"
+    local reSeparator="\s\+"
+    local reSuffix="\s*$"
+    local reLine="${rePrefix}\(${reEntry}\)${reSeparator}\(${rePath}\)${reSuffix}"
+
+    # parse the bookmarks file and extract the columns
+    local entries=( $(sed -e "s/${reLine}/\1/" "${bookmarkFile}") )
+    local paths=( $(sed -e "s/${reLine}/\2/" "${bookmarkFile}") )
+
+    # get the max width of the entries column
+    local entry
+    local maxLen=0
+    for entry in ${entries[@]} ; do
+        [ ${#entry} -gt ${maxLen} ] && maxLen=${#entry}
+    done
+
+    # print with aligned columns and sorted line
+    (   # printing in a subshell then sorting seems to be the best
+        # workaround the last '\n'
+        local i=0
+        for (( i=0; i<${#entries[@]}; i++ )) ; do
+            printf "%-${maxLen}s  %s\n" "${entries[i]}" "${paths[i]}"
+        done
+    ) | sort
+}
+
 function j() {
     local USAGE
     read -r -d '' USAGE << EndOfUsage
@@ -35,10 +79,7 @@ EndOfUsage
             shift  # get rid of '--'
             # j : pretty print the bookmarks file
             if [ $# -eq 0 ] ; then
-                local delim=":"
-                sed -n -e "s/${rePrefix}\(${reEntry}\)${reSeparator}\(${rePath}\)${reSuffix}/\1${delim}\2/p" "${bookmarkFile}" \
-                | column -s ${delim} -t \
-                | sort
+                j_prettyprint
             # j <entry> : jump to the bookmark
             elif [ $# -eq 1 ] ; then
                 local entry="$1"
@@ -88,10 +129,9 @@ EndOfUsage
                 echo                    >> "${bookmarkFile}"
                 echo "${entry} ${path}" >> "${bookmarkFile}"
                 # reformat the file
-                local delim=":"
-                sed -n -e "s/${rePrefix}\(${reEntry}\)${reSeparator}\(${rePath}\)${reSuffix}/\1${delim}\2/p" "${bookmarkFile}" \
-                | column -s ${delim} -t \
-                | sort -o "${bookmarkFile}"
+                # @note: keep "sort -o file"
+                # for some reason, "j_prettyprint > file" and "( j_prettyprint ) | tee file" fail and erase the file
+                j_prettyprint | sort -o "${bookmarkFile}"
             else
                 >&2 echo "${USAGE}"
                 return 5
@@ -233,5 +273,5 @@ j_ProgrammableCompletion()
     return 0
 }
 
-# Register j_ProgrammableCompletion to provide completion for the following commands
+# register j_ProgrammableCompletion to provide completion for j
 complete -F j_ProgrammableCompletion j
