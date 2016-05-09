@@ -1,4 +1,7 @@
 
+# indicate that efficient-shell is available
+readonly EFFICIENT_SHELL=1
+
 # enable/disable logging
 EFFICIENT_SHELL_Verbose=1
 

@@ -7,6 +7,7 @@
 
     j
     j entry
+    j entry path_at_entry
     j --add|-a entry path
     j --remove|-r entry
     j --edit|-e
@@ -21,6 +22,7 @@ then calls `g` to go to the corresponding location.
 
 * no arguments     : shows the list of bookmarks
 * `entry`          : changes the directory which path corresponds to `entry` in the _bookmarks_ file
+* `path_at_entry`  : has the same effect as `j entry && g path_at_entry`
 * `--add`, `-a`    : adds a new `entry` with the given `path` to the _bookmarks_ file.
                      If `entry` exists already, then its `path` is replaced by the new one
 * `--remove`, `-r` : removes an `entry` from the _bookmarks_ file
