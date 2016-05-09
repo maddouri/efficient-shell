@@ -129,39 +129,46 @@ j_ProgrammableCompletion()
     local bookmarkDir="$(dirname ${BASH_SOURCE[0]})/../data"
     local bookmarkFile="${bookmarkDir}/bookmarks"
     # no need to continue if the bookmars file doesn't exist
-    if [ ! -e "${bookmarkDir}" ]
-    then
-        echo "NOT FOUND [bookmarkFile:${bookmarkFile}]"
+    if [ ! -e "${bookmarkDir}" ] ; then
+        >&2 echo "NOT FOUND [bookmarkFile:${bookmarkFile}]"
         return 1
     fi
 
     local candidate_list
 
-    if [ ${current_index} -eq 1   ] && \
-       [[ "${current_word}" == -* ]]  # option
-    then
+    # option
+    if [ ${current_index} -eq 1    ] && \
+       [[ "${current_word}" == -* ]] ; then
         # possible options
         candidate_list="--add -a --remove -r --edit -e --help -h"
-        COMPREPLY=($(compgen -W "${candidate_list}" -- ${current_word}))
-    elif [ ${COMP_CWORD} -eq 1             ] || \
+        COMPREPLY=($(compgen -W "${candidate_list}" -- "${current_word}"))
+    # get entry or remove entry
+    elif [ ${current_index} -eq 1          ] || \
          [ "${previous_word}" = '--remove' ] || \
-         [ "${previous_word}" = '-r'       ]
-    then
+         [ "${previous_word}" = '-r'       ] ; then
         # get the list of entries
         candidate_list=$(sed -e 's/^\s*\(\S\+\)\s\+.\+$/\1/' "${bookmarkFile}")
-        COMPREPLY=($(compgen -W "${candidate_list}" -- ${current_word}))
+        COMPREPLY=($(compgen -W "${candidate_list}" -- "${current_word}"))
     # these options don't accept arguments or there is no meaning to completing their first argument
     elif [ "${previous_word}" = '--edit' ] || \
          [ "${previous_word}" = '-e'     ] || \
          [ "${previous_word}" = '--help' ] || \
          [ "${previous_word}" = '-h'     ] || \
          [ "${previous_word}" = '--add'  ] || \
-         [ "${previous_word}" = '-a'     ]
-    then
+         [ "${previous_word}" = '-a'     ] ; then
         COMPREPLY=()
-    else
-        # just list the files in the current directory (default behavior of bash)
-        COMPREPLY=($(/bin/ls))
+    # j --add <entry> ${current_word}
+    elif [ ${current_index} -eq 3 ] && \
+         [ "${COMP_WORDS[1]}" = '--add' -o "${COMP_WORDS[1]}" = '-a' ] ; then
+        # https://unix.stackexchange.com/a/55622/140618
+        # Unescape space
+        current_word=${current_word//\\ / }
+        # Expand tilder to $HOME
+        [[ ${current_word} == "~/"* ]] && current_word=${current_word/\~/$HOME}
+        # Show completion if path exist (and escape spaces)
+        compopt -o filenames
+        local files=("${current_word}"*)
+        [[ -e ${files[0]} ]] && COMPREPLY=( "${files[@]// /\ }" )
     fi
 
     return 0
