@@ -220,7 +220,7 @@ function EFFICIENT_SHELL_GetPackageInfo() {  # ${FUNCNAME} <pckName> [<infoName>
 #  ...
 function EFFICIENT_SHELL_CreatePackageList() {
     EFFICIENT_SHELL_Packages=$(
-        EFFICIENT_SHELL_ListPackages "name" |  # get the package list
+        EFFICIENT_SHELL_ListPackages "${EFFICIENT_SHELL_PackageConfigProperty_Name}" |  # get the package list
         EFFICIENT_SHELL_FactorAndTrimSpaces
     )
     EFFICIENT_SHELL_Log "EFFICIENT_SHELL_Packages:\n$(tr '\n' ' ' <<< ""${EFFICIENT_SHELL_Packages}"")"
