@@ -69,6 +69,81 @@ function EFFICIENT_SHELL_FactorAndTrimSpaces() {
     sed -e 's/[[:space:]]\+/ /g' -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//'
 }
 
+# given a multiline string, returns the length of the longest line
+# "companion function" for EFFICIENT_SHELL_Columnize
+#function EFFICIENT_SHELL_ColumnWidth() {  # ${FUNCNAME} <<< <inputMultilineString>
+#    # https://stackoverflow.com/a/8768435/865719
+#    local lines=( $(IFS=$'\n' tee) )
+#    local line
+#    local maxLen=0
+#    for line in ${lines[@]} ; do
+#        [ ${#line} -gt ${maxLen} ] && maxLen=${#line}
+#    done
+#
+#    echo ${maxLen}
+#}
+
+# print aligned columns from CSV-like, multiline string
+# (almost) pure-shell script replacement for `column` from `bsdmainutils`
+# requires [head, grep, wc, sed, awk] which should be available everywhere
+# EFFICIENT_SHELL_ColumnWidth is a "commanion function"
+function EFFICIENT_SHELL_Columnize() {  # ${FUNCNAME} <inputMultilineString> <inputColumnSeparator> [<outputColumnSeparator>]
+    # read input
+    local inputString="$1"
+    local sep="$2"
+    local outputFieldSeparator=' '
+    [ -n "$3" ] && outputFieldSeparator="$3"
+
+    # compute the number of columns -- i.e. fields
+    # https://stackoverflow.com/a/16679640/865719
+    local sepCount=$(head -n 1 <<< "${inputString}" | grep -o "${sep}" | wc -l)
+    local colCount=$(($sepCount+1))
+    #echo "colCount:$colCount"
+
+    # compute the maximum width of each column
+    local colNum
+    local colWidths=()
+    for ((colNum=1; colNum<=${colCount}; colNum++)) ; do
+        local fieldColumn=$(awk -F "${sep}"  '{print $'"${colNum}"'}' <<< "${inputString}")  # http://www.joeldare.com/wiki/using_awk_on_csv_files
+        #colWidths+=( $(EFFICIENT_SHELL_ColumnWidth <<< "${fieldColumn}") )
+        colWidths+=( $(
+            lines=( $(IFS=$'\n' echo "${fieldColumn}") );  # https://stackoverflow.com/a/8768435/865719
+            maxLen=0;
+            for line in ${lines[@]} ; do
+                if [ ${#line} -gt ${maxLen} ] ; then maxLen=${#line}; fi;
+            done;
+
+            echo ${maxLen};
+        ) )
+    done
+    #echo "colWidths:${colWidths[@]}"
+
+    # print each field of each line using the information of maximum width
+    (
+        local outputString=""
+        local IFS=$'\n'
+        local lines=( $(echo "${inputString}") )
+        local line
+        for line in ${lines[@]} ; do
+            #echo "[${line}]"
+            local lineFields=()
+            local colNum
+            local outputLine
+            outputLine=""
+            for ((colNum=1; colNum<=${colCount}; colNum++)) ; do
+                local field=$(awk -F "${sep}"  '{print $'"${colNum}"'}' <<< "${line}")
+                outputLine+=$(printf "%-${colWidths[colNum-1]}s%s" "${field}" "${outputFieldSeparator}")
+            done
+            # remove the last (unnecessary) separator (@see the for printf above for why it is unnecessary)
+            outputLine=$(sed 's/'"${outputFieldSeparator}"'$//' <<< "${outputLine}")
+            outputLine+=$'\n'
+            outputString+="${outputLine}"
+        done
+
+        echo -n "${outputString}"
+    )
+}
+
 # EFFICIENT_SHELL_ForEachPackage <function>
 # calls <function> for each package directory
 # i.e. for each package directory, executes: <function> ${pckDir}
@@ -163,30 +238,48 @@ function EFFICIENT_SHELL_GetPackageInfo_FromConfigFile() {  # ${FUNCNAME} <confi
 }
 
 function EFFICIENT_SHELL_ListPackages() {  # ${FUNCNAME} <fields> [<field>...]
+    if [ $# -eq 0 ] ; then
+        EFFICIENT_SHELL_Error "Valid fields:" $EFFICIENT_SHELL_PackageConfigProperty_{Name,Main,Depend,Directory,ConfigFile}
+        return 1
+    fi
+
+    # @TODO add validate that $@ contains words from EFFICIENT_SHELL_PackageConfigProperty_*
+
     #local columnSeparator=","
     local columnSeparator=$'\t'
     local resultString=""
     local configFiles="${EFFICIENT_SHELL_PackageDirectory}/*/${EFFICIENT_SHELL_PackageConfigFileName}"
     for config in ${configFiles} ; do
         local infoName
+        local resultLine
+        resultLine=""
         for infoName in "$@" ; do
             local info=$(EFFICIENT_SHELL_GetPackageInfo_FromConfigFile "${config}" "${infoName}")
             if [ -n "${info}" ] ; then
-                resultString+="${info}${columnSeparator}"
+                resultLine+="${info}${columnSeparator}"
             else
                 # fail silenty
-                resultString+="${columnSeparator}"
+                resultLine+="${columnSeparator}"
                 #EFFICIENT_SHELL_Error "Configuration problem in [config:${config}}"
                 #return 1
             fi
         done
-        # add '\n' to the last field
-        resultString+=$'\n'
+        # remove the last (unnecessary) separator (@see the if/else above for why it is unnecessary)
+        resultLine=$(sed 's/'"${columnSeparator}"'$//' <<< "${resultLine}")
+        #EFFICIENT_SHELL_Error "resultString[${resultString}]"
+        # add '\n' to the last field and go to the next entry/line
+        resultLine+=$'\n'
+        resultString+="${resultLine}"
     done
-    echo "${resultString}"
+
+    #echo "${resultString}"
+
     # https://stackoverflow.com/a/3800791/865719
     # column is not installed by default, sudo apt-get install bsdmainutils
-    #echo "${resultString}" | column -s, -t
+    #echo "${resultString}" | column -s"${columnSeparator}" -t
+
+    # pretty print the fields in aligned columns
+    EFFICIENT_SHELL_Columnize "${resultString}" "${columnSeparator}" $'\t'
 }
 
 function EFFICIENT_SHELL_GetPackageInfo() {  # ${FUNCNAME} <pckName> [<infoName>]
@@ -215,7 +308,7 @@ function EFFICIENT_SHELL_GetPackageInfo() {  # ${FUNCNAME} <pckName> [<infoName>
 #  ...
 function EFFICIENT_SHELL_CreatePackageList() {
     EFFICIENT_SHELL_Packages=$(
-        EFFICIENT_SHELL_ListPackages "name" |  # get the package list
+        EFFICIENT_SHELL_ListPackages "${EFFICIENT_SHELL_PackageConfigProperty_Name}" |  # get the package list
         EFFICIENT_SHELL_FactorAndTrimSpaces
     )
     EFFICIENT_SHELL_Log "EFFICIENT_SHELL_Packages:\n$(tr '\n' ' ' <<< ""${EFFICIENT_SHELL_Packages}"")"
