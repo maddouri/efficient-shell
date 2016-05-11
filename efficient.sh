@@ -128,16 +128,19 @@ function EFFICIENT_SHELL_Columnize() {  # ${FUNCNAME} <inputMultilineString> <in
             #echo "[${line}]"
             local lineFields=()
             local colNum
+            local outputLine
+            outputLine=""
             for ((colNum=1; colNum<=${colCount}; colNum++)) ; do
                 local field=$(awk -F "${sep}"  '{print $'"${colNum}"'}' <<< "${line}")
-                outputString+=$(printf "%-${colWidths[colNum-1]}s%s" "${field}" "${outputFieldSeparator}")
+                outputLine+=$(printf "%-${colWidths[colNum-1]}s%s" "${field}" "${outputFieldSeparator}")
             done
             # remove the last (unnecessary) separator (@see the for printf above for why it is unnecessary)
-            outputString=$(sed 's/^\(.*\)'"${outputFieldSeparator}"'$/\1/' <<< "${outputString}")
-            outputString+=$'\n'
+            outputLine=$(sed 's/'"${outputFieldSeparator}"'$//' <<< "${outputLine}")
+            outputLine+=$'\n'
+            outputString+="${outputLine}"
         done
 
-        echo "${outputString}"
+        echo -n "${outputString}"
     )
 }
 
@@ -248,31 +251,35 @@ function EFFICIENT_SHELL_ListPackages() {  # ${FUNCNAME} <fields> [<field>...]
     local configFiles="${EFFICIENT_SHELL_PackageDirectory}/*/${EFFICIENT_SHELL_PackageConfigFileName}"
     for config in ${configFiles} ; do
         local infoName
+        local resultLine
+        resultLine=""
         for infoName in "$@" ; do
             local info=$(EFFICIENT_SHELL_GetPackageInfo_FromConfigFile "${config}" "${infoName}")
             if [ -n "${info}" ] ; then
-                resultString+="${info}${columnSeparator}"
+                resultLine+="${info}${columnSeparator}"
             else
                 # fail silenty
-                resultString+="${columnSeparator}"
+                resultLine+="${columnSeparator}"
                 #EFFICIENT_SHELL_Error "Configuration problem in [config:${config}}"
                 #return 1
             fi
         done
         # remove the last (unnecessary) separator (@see the if/else above for why it is unnecessary)
-        resultString=$(sed 's/^\(.*\)'"${columnSeparator}"'$/\1/' <<< "${resultString}")
+        resultLine=$(sed 's/'"${columnSeparator}"'$//' <<< "${resultLine}")
+        #EFFICIENT_SHELL_Error "resultString[${resultString}]"
         # add '\n' to the last field and go to the next entry/line
-        resultString+=$'\n'
+        resultLine+=$'\n'
+        resultString+="${resultLine}"
     done
 
     #echo "${resultString}"
 
     # https://stackoverflow.com/a/3800791/865719
     # column is not installed by default, sudo apt-get install bsdmainutils
-    #echo "${resultString}" | column -s, -t
+    #echo "${resultString}" | column -s"${columnSeparator}" -t
 
     # pretty print the fields in aligned columns
-    EFFICIENT_SHELL_Columnize "${resultString}" "${columnSeparator}" " "
+    EFFICIENT_SHELL_Columnize "${resultString}" "${columnSeparator}" $'\t'
 }
 
 function EFFICIENT_SHELL_GetPackageInfo() {  # ${FUNCNAME} <pckName> [<infoName>]
