@@ -1,25 +1,26 @@
+#!/usr/bin/env bash
 
 # indicate that efficient-shell is available
 readonly EFFICIENT_SHELL=1
 
 # enable/disable logging
-EFFICIENT_SHELL_Verbose=1
+export EFFICIENT_SHELL_Verbose=1
 
 # EFFICIENT_SHELL_Log <args...>
 # executes `echo <args...>` iff EFFICIENT_SHELL_Verbose is true
 alias EFFICIENT_SHELL_Log='test ${EFFICIENT_SHELL_Verbose} && echo -e "EFFICIENT_SHELL:"'
-
+# prints error messages to stderr
 alias EFFICIENT_SHELL_Error='>&2 echo -e "EFFICIENT_SHELL @ ${FUNCNAME}:"'
 
 # path to efficient.sh (i.e. this file)
-readonly EFFICIENT_SHELL_MainScript=$(readlink -f "${BASH_SOURCE[0]}")
+readonly EFFICIENT_SHELL_MainScript="$(readlink -f "${BASH_SOURCE[0]}")"
 if [ ! -f "${EFFICIENT_SHELL_MainScript}" ] ; then
     EFFICIENT_SHELL_Error "EFFICIENT_SHELL_MainScript:[${EFFICIENT_SHELL_MainScript}] is not a script."
     return 1
 fi
 
 # root directory of efficient_shell
-readonly EFFICIENT_SHELL_Root="$(readlink -f $(dirname ${EFFICIENT_SHELL_MainScript}))"
+readonly EFFICIENT_SHELL_Root="$(readlink -f "$(dirname "${EFFICIENT_SHELL_MainScript}")")"
 if [ ! -d "${EFFICIENT_SHELL_Root}" ] ; then
     EFFICIENT_SHELL_Error "EFFICIENT_SHELL_Root:[${EFFICIENT_SHELL_Root}] is not a directory."
     return 2
@@ -40,12 +41,6 @@ if [ ! -d "${EFFICIENT_SHELL_DataDirectory}" ] ; then
     EFFICIENT_SHELL_Error "EFFICIENT_SHELL_DataDirectory:[${EFFICIENT_SHELL_DataDirectory}] is not a directory."
     return 4
 fi
-
-# package list
-EFFICIENT_SHELL_Packages=""
-EFFICIENT_SHELL_DependencyGraph=""
-EFFICIENT_SHELL_PackageLoadingOrder=""
-EFFICIENT_SHELL_MissingPackages=""
 
 # the package config file that has to be present in the package directory
 readonly EFFICIENT_SHELL_PackageConfigFileName="efficient.cfg"
@@ -69,25 +64,10 @@ function EFFICIENT_SHELL_FactorAndTrimSpaces() {
     sed -e 's/[[:space:]]\+/ /g' -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//'
 }
 
-# given a multiline string, returns the length of the longest line
-# "companion function" for EFFICIENT_SHELL_Columnize
-#function EFFICIENT_SHELL_ColumnWidth() {  # ${FUNCNAME} <<< <inputMultilineString>
-#    # https://stackoverflow.com/a/8768435/865719
-#    local lines=( $(IFS=$'\n' tee) )
-#    local line
-#    local maxLen=0
-#    for line in ${lines[@]} ; do
-#        [ ${#line} -gt ${maxLen} ] && maxLen=${#line}
-#    done
-#
-#    echo ${maxLen}
-#}
-
 # print aligned columns from CSV-like, multiline string
 # (almost) pure-shell script replacement for `column` from `bsdmainutils`
 # requires [head, grep, wc, sed, awk] which should be available everywhere
-# EFFICIENT_SHELL_ColumnWidth is a "commanion function"
-function EFFICIENT_SHELL_Columnize() {  # ${FUNCNAME} <inputMultilineString> <inputColumnSeparator> [<outputColumnSeparator>]
+function EFFICIENT_SHELL_Columnize() {  # <inputMultilineString> <inputColumnSeparator> [<outputColumnSeparator>]
     # read input
     local inputString="$1"
     local sep="$2"
@@ -96,24 +76,27 @@ function EFFICIENT_SHELL_Columnize() {  # ${FUNCNAME} <inputMultilineString> <in
 
     # compute the number of columns -- i.e. fields
     # https://stackoverflow.com/a/16679640/865719
-    local sepCount=$(head -n 1 <<< "${inputString}" | grep -o "${sep}" | wc -l)
-    local colCount=$(($sepCount+1))
+    local sepCount
+    local colCount
+    sepCount="$(head -n 1 <<< "${inputString}" | grep -o "${sep}" | wc -l)"
+    colCount=$((sepCount+1))
     #echo "colCount:$colCount"
 
     # compute the maximum width of each column
     local colNum
     local colWidths=()
-    for ((colNum=1; colNum<=${colCount}; colNum++)) ; do
-        local fieldColumn=$(awk -F "${sep}"  '{print $'"${colNum}"'}' <<< "${inputString}")  # http://www.joeldare.com/wiki/using_awk_on_csv_files
-        #colWidths+=( $(EFFICIENT_SHELL_ColumnWidth <<< "${fieldColumn}") )
+    for ((colNum=1; colNum<=colCount; colNum++)) ; do
+        local fieldColumn
+        fieldColumn="$(awk -F "${sep}" '{print $'"${colNum}"'}' <<< "${inputString}")"  # http://www.joeldare.com/wiki/using_awk_on_csv_files
+        # length of the longest line
         colWidths+=( $(
-            lines=( $(IFS=$'\n' echo "${fieldColumn}") );  # https://stackoverflow.com/a/8768435/865719
+            IFS=$'\n';  # https://stackoverflow.com/a/8768435/865719
+            lines=( $(echo "${fieldColumn}") );
             maxLen=0;
-            for line in ${lines[@]} ; do
+            for line in "${lines[@]}" ; do
                 if [ ${#line} -gt ${maxLen} ] ; then maxLen=${#line}; fi;
             done;
-
-            echo ${maxLen};
+            echo "${maxLen}";
         ) )
     done
     #echo "colWidths:${colWidths[@]}"
@@ -122,20 +105,20 @@ function EFFICIENT_SHELL_Columnize() {  # ${FUNCNAME} <inputMultilineString> <in
     (
         local outputString=""
         local IFS=$'\n'
-        local lines=( $(echo "${inputString}") )
         local line
-        for line in ${lines[@]} ; do
+        local lines
+        lines=( $(echo "${inputString}") )
+        for line in "${lines[@]}" ; do
             #echo "[${line}]"
-            local lineFields=()
             local colNum
-            local outputLine
-            outputLine=""
-            for ((colNum=1; colNum<=${colCount}; colNum++)) ; do
-                local field=$(awk -F "${sep}"  '{print $'"${colNum}"'}' <<< "${line}")
-                outputLine+=$(printf "%-${colWidths[colNum-1]}s%s" "${field}" "${outputFieldSeparator}")
+            local outputLine=""
+            for ((colNum=1; colNum<=colCount; colNum++)) ; do
+                local field
+                field="$(awk -F "${sep}"  '{print $'"${colNum}"'}' <<< "${line}")"
+                outputLine+="$(printf "%-${colWidths[colNum-1]}s%s" "${field}" "${outputFieldSeparator}")"
             done
             # remove the last (unnecessary) separator (@see the for printf above for why it is unnecessary)
-            outputLine=$(sed 's/'"${outputFieldSeparator}"'$//' <<< "${outputLine}")
+            outputLine="$(sed 's/'"${outputFieldSeparator}"'$//' <<< "${outputLine}")"
             outputLine+=$'\n'
             outputString+="${outputLine}"
         done
@@ -144,106 +127,64 @@ function EFFICIENT_SHELL_Columnize() {  # ${FUNCNAME} <inputMultilineString> <in
     )
 }
 
-# EFFICIENT_SHELL_ForEachPackage <function>
-# calls <function> for each package directory
-# i.e. for each package directory, executes: <function> ${pckDir}
-function EFFICIENT_SHELL_ForEachPackage() {
-    # function to call
-    local func="$1"
-    # @todo check the existence/validity of ${func}
-
-    # list of package directories
-    #local EFFICIENT_SHELL_PackageDirectories=${EFFICIENT_SHELL_PackageDirectory}/*/
-
-    # call the function on each package directory
-    local thisPackage
-    local packageDirectory
-    for thisPackage in ${EFFICIENT_SHELL_PackageLoadingOrder} ; do
-        packageDirectory="${EFFICIENT_SHELL_PackageDirectory}/${thisPackage}"
-        if [ -d "${packageDirectory}" ] ; then
-            ${func} "${packageDirectory}"
-        else
-            EFFICIENT_SHELL_Error "Failed to access package [${thisPackage}]: directory [${packageDirectory}] not found"
-            return 1
-        fi
-    done
-}
-
-# EFFICIENT_SHELL_LoadPackage <pckDir>
-# loads a package from the given directory
-function EFFICIENT_SHELL_LoadPackage() {
-    local pckDir="$1"
-    local pckName="$(basename ${pckDir})"
-
-    EFFICIENT_SHELL_Log "loading package [${pckName}]"
-
-    # list the scripts to source
-    local scriptDir="${pckDir}/src"
-    local scriptFilePattern="*.sh"
-    local scriptFiles=$(find "${scriptDir}" -maxdepth 1 -type f -iname "${scriptFilePattern}")
-
-    # is there anything to load ?
-    if [ -z "${scriptFiles}" ] ; then
-        return 0
-    fi
-
-    # load each script
-    local scriptFile
-    for scriptFile in "${scriptFiles}" ; do
-        EFFICIENT_SHELL_Log "loading script  [${pckName} / $(basename ${scriptFile})]"
-
-        source "${scriptFile}"
-
-        EFFICIENT_SHELL_Log "loaded  script  [${pckName} / $(basename ${scriptFile})]"
-    done
-
-    EFFICIENT_SHELL_Log "loaded  package [${pckName}]"
-}
-
-function EFFICIENT_SHELL_GetPackageInfo_FromConfigFile() {  # ${FUNCNAME} <configFile> <infoName>
+# reads the provided <configFile> and prints out an associative array
+# representing the `<property>="<value>"` structure of the file
+# e.g. For package/j/efficient.cfg, this function outputs the following string:
+#   declare -A properties='([depend]="g" [name]="j" [config]="/efficient-shell/package/j/efficient.cfg" [main]="src/j.sh" [dir]="/efficient-shell/package/j" )'
+# The above string DOES contain `declare -A properties=...`
+# This is a trick to "return" an associative array from a function
+# Therefore, to "get" the returned array, the caller has to use the `eval` command
+# e.g. The following code calls EFFICIENT_SHELL_ParseConfigFile then
+# creates the `properties` array from the its output:
+#   local pckInfo="$(EFFICIENT_SHELL_ParseConfigFile "${configFilePath}")"
+#   eval "declare -A properties=${pckInfo#*=}"
+function EFFICIENT_SHELL_ParseConfigFile() {  # <configFile>
     local configFile="$1"
-    local infoName="$2"
-
     if [ -f "${configFile}" ] ; then
-        # special cases
-        # if the info is the path of the config file itself
-        if [ "${infoName}" = "${EFFICIENT_SHELL_PackageConfigProperty_Directory}" ] ; then
-            echo $(dirname $(readlink -f "${configFile}"))
-            return 0
-        elif [ "${infoName}" = "${EFFICIENT_SHELL_PackageConfigProperty_ConfigFile}" ] ; then
-            echo $(readlink -f "${configFile}")
-            return 0
-        fi
+        # use an associative array
+        declare -A properties
 
-        # find the <infoName> field and filter out <infoName> and any quotes surrounding the info
-        # input : <infoName>="<info>" | <infoName>='<info>' | <infoName> = '<info>' | ...
-        # output: <info>
-        local info=$(
-            grep "${infoName}" "${configFile}" |                # find the property
-            tail -n 1 |                                     # keep the last occurence (robustness to (erroneous) multiple definitions)
-            sed 's/^[^=]*=\s*["\x27]\(.*\)["\x27]\s*$/\1/'  # filter out <infoName>, =, " or ' and any extra spaces
-        )
-        if [ -n "${info}" ] ; then
-            echo "${info}"
-        else
-            # fail silenty
-            echo ''
-            #EFFICIENT_SHELL_Error "[infoName:${infoName}] not found in [configFile:${configFile}]"
-            #return 2
-        fi
+        # special info
+        properties["${EFFICIENT_SHELL_PackageConfigProperty_Directory}"]="$(dirname "$(readlink -f "${configFile}")")"
+        properties["${EFFICIENT_SHELL_PackageConfigProperty_ConfigFile}"]="$(readlink -f "${configFile}")"
+
+        # info in the config file
+        local infoName
+        for infoName in $EFFICIENT_SHELL_PackageConfigProperty_{Name,Main,Depend} ; do
+            # find the <infoName> field and filter out <infoName> and any quotes surrounding the info
+            # input : <infoName>="<info>" | <infoName>='<info>' | <infoName> = '<info>' | ...
+            # output: <info>
+            properties["${infoName}"]="$(
+                grep "${infoName}" "${configFile}" |            # find the property
+                tail -n 1 |                                     # keep the last occurence (robustness to (erroneous) multiple definitions)
+                sed 's/^[^=]*=\s*["\x27]\(.*\)["\x27]\s*$/\1/'  # filter out <infoName>, =, " or ' and any extra spaces
+            )"
+        done
+
+        # return the data
+        declare -p properties
     else
-        EFFICIENT_SHELL_Error "Config file not found for [${pckDir}]"
+        EFFICIENT_SHELL_Error "Config file not found for [${configFile}]"
         return 1;
     fi
 }
 
-function EFFICIENT_SHELL_ListPackages() {  # ${FUNCNAME} <fields> [<field>...]
-    if [ $# -eq 0 ] ; then
-        EFFICIENT_SHELL_Error "Valid fields:" $EFFICIENT_SHELL_PackageConfigProperty_{Name,Main,Depend,Directory,ConfigFile}
-        return 1
-    fi
+# Outputs the list of installed packages alon with their properties
+# Valid properties are EFFICIENT_SHELL_PackageConfigProperty_*
+# If no <field> is provied, this function prints all the properties of all packags
+function EFFICIENT_SHELL_ListPackages() {  # [<field>...]
+    # print all fields by default
+    [ $# -eq 0 ] && eval set -- "$(echo $EFFICIENT_SHELL_PackageConfigProperty_{Name,Main,Depend,Directory,ConfigFile})"
 
-    # @TODO add validate that $@ contains words from EFFICIENT_SHELL_PackageConfigProperty_*
+    # validate that $@ contains words from EFFICIENT_SHELL_PackageConfigProperty_*
+    local infoName
+    for infoName in "$@" ; do
+        echo $EFFICIENT_SHELL_PackageConfigProperty_{Name,Main,Depend,Directory,ConfigFile} | grep -q "\b${infoName}\b"
+        if [ $? -ne 0 ] ; then
+            EFFICIENT_SHELL_Error "Valid fields:" $EFFICIENT_SHELL_PackageConfigProperty_{Name,Main,Depend,Directory,ConfigFile}
+            return 1
+        fi
+    done
 
     #local columnSeparator=","
     local columnSeparator=$'\t'
@@ -251,20 +192,14 @@ function EFFICIENT_SHELL_ListPackages() {  # ${FUNCNAME} <fields> [<field>...]
     local configFiles="${EFFICIENT_SHELL_PackageDirectory}/*/${EFFICIENT_SHELL_PackageConfigFileName}"
     for config in ${configFiles} ; do
         local infoName
-        local resultLine
-        resultLine=""
+        local resultLine=""
+        local pckInfo
+        pckInfo="$(EFFICIENT_SHELL_ParseConfigFile "${config}")"
+        eval "declare -A properties=${pckInfo#*=}"
         for infoName in "$@" ; do
-            local info=$(EFFICIENT_SHELL_GetPackageInfo_FromConfigFile "${config}" "${infoName}")
-            if [ -n "${info}" ] ; then
-                resultLine+="${info}${columnSeparator}"
-            else
-                # fail silenty
-                resultLine+="${columnSeparator}"
-                #EFFICIENT_SHELL_Error "Configuration problem in [config:${config}}"
-                #return 1
-            fi
+            resultLine+="${properties[${infoName}]}${columnSeparator}"
         done
-        # remove the last (unnecessary) separator (@see the if/else above for why it is unnecessary)
+        # remove the last (unnecessary) separator (@see above for why it is unnecessary)
         resultLine=$(sed 's/'"${columnSeparator}"'$//' <<< "${resultLine}")
         #EFFICIENT_SHELL_Error "resultString[${resultString}]"
         # add '\n' to the last field and go to the next entry/line
@@ -279,27 +214,29 @@ function EFFICIENT_SHELL_ListPackages() {  # ${FUNCNAME} <fields> [<field>...]
     #echo "${resultString}" | column -s"${columnSeparator}" -t
 
     # pretty print the fields in aligned columns
-    EFFICIENT_SHELL_Columnize "${resultString}" "${columnSeparator}" $'\t'
+    EFFICIENT_SHELL_Columnize "${resultString}" "${columnSeparator}" "  "
 }
 
-function EFFICIENT_SHELL_GetPackageInfo() {  # ${FUNCNAME} <pckName> [<infoName>]
+# Outputs information about a given package
+function EFFICIENT_SHELL_GetPackageInfo() {  # <pckName> [<infoName>]
     local pckName="$1"
     local infoName="$2"
+
+    local outputString=""
+    # if a specific property name has been provided, print it
     if [ -n "${infoName}" ] ; then
-        local info=$(
+        outputString="$(
             EFFICIENT_SHELL_ListPackages "${EFFICIENT_SHELL_PackageConfigProperty_Name}" "${infoName}" |
             grep "^\s*${pckName}"   |
             sed -e "s/${pckName}//" |
             EFFICIENT_SHELL_TrimSpaces
-        )
-        echo "${info}"
+        )"
+    # if no property name has been provided, print all of them
     else
-        local infos=$(
-            EFFICIENT_SHELL_ListPackages "${EFFICIENT_SHELL_PackageConfigProperty_Name}" "${EFFICIENT_SHELL_PackageConfigProperty_Main}" "${EFFICIENT_SHELL_PackageConfigProperty_Depend}" "${EFFICIENT_SHELL_PackageConfigProperty_Directory}" |
-            grep "${pckName}"
-        )
-        echo "${infos}"
+        outputString="$(EFFICIENT_SHELL_ListPackages | grep "^\s*${pckName}")"
     fi
+
+    echo "${outputString}"
 }
 
 # generates a list of installed packages in EFFICIENT_SHELL_Packages:
@@ -307,32 +244,29 @@ function EFFICIENT_SHELL_GetPackageInfo() {  # ${FUNCNAME} <pckName> [<infoName>
 #  pck2
 #  ...
 function EFFICIENT_SHELL_CreatePackageList() {
-    EFFICIENT_SHELL_Packages=$(
-        EFFICIENT_SHELL_ListPackages "${EFFICIENT_SHELL_PackageConfigProperty_Name}" |  # get the package list
-        EFFICIENT_SHELL_FactorAndTrimSpaces
-    )
-    EFFICIENT_SHELL_Log "EFFICIENT_SHELL_Packages:\n$(tr '\n' ' ' <<< ""${EFFICIENT_SHELL_Packages}"")"
+    EFFICIENT_SHELL_ListPackages "${EFFICIENT_SHELL_PackageConfigProperty_Name}" |\
+    EFFICIENT_SHELL_FactorAndTrimSpaces
 }
 
 # finds the dependencies between the installed packages
 # outputs the dependency graph in EFFICIENT_SHELL_DependencyGraph
 # the dependency graph is formatted according to the format accepted by tsort https://en.wikipedia.org/wiki/Tsort
-function EFFICIENT_SHELL_BuildDependencyGraph() {
-    # reset dependency graph (global variable)
-    EFFICIENT_SHELL_DependencyGraph=""
+function EFFICIENT_SHELL_BuildDependencyGraph() {  # <pck> [<pck>...]
+    local dependencyGraph=""
 
     local pckName
-    for pckName in ${EFFICIENT_SHELL_Packages} ; do
+    for pckName in "$@" ; do
 
         #EFFICIENT_SHELL_Log "Processing [${pckName}]"
 
         # get the dependency list in the form "dep1 dep2 ..."
         # this way, it can be iterated over
-        local pckDepend=$(
+        local pckDepend
+        pckDepend="$(
             EFFICIENT_SHELL_GetPackageInfo "${pckName}" "${EFFICIENT_SHELL_PackageConfigProperty_Depend}"  |
             sed -e "s/${pckName}//" |
             EFFICIENT_SHELL_FactorAndTrimSpaces
-        )
+        )"
 
         #EFFICIENT_SHELL_Log "pckDepend [${pckDepend}]"
 
@@ -345,62 +279,64 @@ function EFFICIENT_SHELL_BuildDependencyGraph() {
             #   ...
             for d in ${pckDepend} ; do  # don't use "${depend}"  (i.e. no quotes)
                 # append the dependency list to the dependency graph
-                EFFICIENT_SHELL_DependencyGraph+=$'\n'"${d} ${pckName}"
+                dependencyGraph+=$'\n'"${d} ${pckName}"
             done
         # this package doesn't have dependencies
         else
             # https://en.wikipedia.org/wiki/Tsort#Usage_notes
             # Pairs of identical items indicate presence of a vertex, but not ordering
             # (so the following represents one vertex without edges):
-            EFFICIENT_SHELL_DependencyGraph+=$'\n'"${pckName} ${pckName}"
+            dependencyGraph+=$'\n'"${pckName} ${pckName}"
         fi
-
     done
 
-    #
-    EFFICIENT_SHELL_Log "EFFICIENT_SHELL_DependencyGraph:${EFFICIENT_SHELL_DependencyGraph}"
+    echo "${dependencyGraph}"
 }
 
 # computes the package loading order from the dependency graph generated by EFFICIENT_SHELL_BuildDependencyGraph
 # outputs the loading order in ${EFFICIENT_SHELL_PackageLoadingOrder}
-function EFFICIENT_SHELL_SolveDependencies() {
+function EFFICIENT_SHELL_SolveDependencies() {  # <dependencyGraph>
+    local dependencyGraph="$1"
+
     # @TODO reduce dependency to external tools by replacing tsort with pure-shell implementation
     # http://rosettacode.org/wiki/Topological_sort#UNIX_Shell
 
-    # topological sort of the dependency graph (global variable)
-    EFFICIENT_SHELL_PackageLoadingOrder=$(tsort <<< "${EFFICIENT_SHELL_DependencyGraph}")
-
-    EFFICIENT_SHELL_Log "EFFICIENT_SHELL_PackageLoadingOrder:\n$(tr '\n' ' ' <<< ${EFFICIENT_SHELL_PackageLoadingOrder})"
+    # topological sort of the dependency graph
+    tsort <<< "${dependencyGraph}"
 }
 
 # checks that the required packages are actually installed
-function EFFICIENT_SHELL_CheckPackages() {
-    EFFICIENT_SHELL_MissingPackages=""
+function EFFICIENT_SHELL_CheckPackages() {  # <pck> [<pck>...]
+    local missingPackages=""
 
     # call the function on each package directory
     local pckName
-    for pckName in ${EFFICIENT_SHELL_PackageLoadingOrder} ; do
-        local pckInfo=$(EFFICIENT_SHELL_GetPackageInfo "${pckName}")
-        if [ ! -n "${pckInfo}" ] ; then
-            EFFICIENT_SHELL_MissingPackages+=$'\n'
-            EFFICIENT_SHELL_MissingPackages+="${pckName}"
-            EFFICIENT_SHELL_Error "missing [${pckName}]"
+    for pckName in "$@" ; do
+        local pckInfo
+        pckInfo="$(EFFICIENT_SHELL_GetPackageInfo "${pckName}")"
+        if [ -z "${pckInfo}" ] ; then
+            missingPackages+=$'\n'"${pckName}"
+            #EFFICIENT_SHELL_Error "missing [${pckName}]"
         fi
     done
 
-    if [ -n "${EFFICIENT_SHELL_MissingPackages}" ] ; then
-        EFFICIENT_SHELL_Error "some packages are missing [$(tr '\n' ' ' <<< ${EFFICIENT_SHELL_MissingPackages})]"
+    if [ -n "${missingPackages}" ] ; then
+        EFFICIENT_SHELL_Error "some packages are missing [$(tr '\n' ' ' <<< "${missingPackages}")]"
+        echo "${missingPackages}"
         return 1
     fi
 }
 
 # loads the packages in the order specified in EFFICIENT_SHELL_PackageLoadingOrder
-function EFFICIENT_SHELL_LoadPackages() {
+function EFFICIENT_SHELL_LoadPackages() {  # <pck> [<pck>...]
     local pckName
-    for pckName in ${EFFICIENT_SHELL_PackageLoadingOrder} ; do
-        local pckDir=$(EFFICIENT_SHELL_GetPackageInfo "${pckName}" "${EFFICIENT_SHELL_PackageConfigProperty_Directory}")
-        local pckMainInfo=$(EFFICIENT_SHELL_GetPackageInfo "${pckName}" "${EFFICIENT_SHELL_PackageConfigProperty_Main}")
-        local pckMain="${pckDir}/${pckMainInfo}"
+    for pckName in "$@" ; do
+        local pckDir
+        local pckMainInfo
+        local pckMain
+        pckDir="$(EFFICIENT_SHELL_GetPackageInfo "${pckName}" "${EFFICIENT_SHELL_PackageConfigProperty_Directory}")"
+        pckMainInfo="$(EFFICIENT_SHELL_GetPackageInfo "${pckName}" "${EFFICIENT_SHELL_PackageConfigProperty_Main}")"
+        pckMain="${pckDir}/${pckMainInfo}"
 
         EFFICIENT_SHELL_Log "loading [${pckName}]"
         if [ -f "${pckMain}" ] ; then
@@ -416,20 +352,76 @@ function EFFICIENT_SHELL_LoadPackages() {
 
 # initializes the efficiency!
 function EFFICIENT_SHELL_Init() {
+
+    # package list
+    # Deduced from the packages in EFFICIENT_SHELL_PackageDirectory
+    # Format
+    #   pck1
+    #   pck2
+    #   ...
+    local EFFICIENT_SHELL_Packages=""
     # populate EFFICIENT_SHELL_Packages
-    EFFICIENT_SHELL_CreatePackageList    || return 10
+    EFFICIENT_SHELL_Packages="$(EFFICIENT_SHELL_CreatePackageList)"
+    [ $? -ne 0 ] && return 10
+    EFFICIENT_SHELL_Log "EFFICIENT_SHELL_Packages:\n$(tr '\n' ' ' <<< "${EFFICIENT_SHELL_Packages}")"
 
+    # dependency graph
+    # Has a format compatible with the `tsort` command: https://en.wikipedia.org/wiki/Tsort#Usage_notes
+    # e.g. If there are 2 packages -- pck_a and pck_b -- that are to be loaded
+    # and pck_a depends on pck11 and pck12
+    # and pck_b depends on pck_a and pck_x
+    # and pck_c doesn't depend on any other package
+    # then the dependency graph should be:
+    #   pck11 pck_a
+    #   pck12 pck_a
+    #   pck_a pck_b
+    #   pck_x pck_b
+    #   pck_c pck_c
+    # Note that pck11, pck12 and pck_x have to be installed as well
+    # Therefore, the dependency graph is actually: (assuming pck11, pck12 and pck_x don't depend on other packages)
+    #   pck11 pck_a
+    #   pck12 pck_a
+    #   pck_a pck_b
+    #   pck_x pck_b
+    #   pck_c pck_c
+    #   pck11 pck11
+    #   pck12 pck12
+    #   pck_x pck_x
+    # Note that the order doesn't matter
+    local EFFICIENT_SHELL_DependencyGraph=""
     # build the dependency graph
-    EFFICIENT_SHELL_BuildDependencyGraph || return 11
+    EFFICIENT_SHELL_DependencyGraph="$(EFFICIENT_SHELL_BuildDependencyGraph $(tr '\n' ' ' <<<"${EFFICIENT_SHELL_Packages}"))"
+    [ $? -ne 0 ] && return 11
+    EFFICIENT_SHELL_Log "EFFICIENT_SHELL_DependencyGraph:${EFFICIENT_SHELL_DependencyGraph}"
 
+    # the package list, sorted by the order in which the packages are to be loaded
+    # This is the results of `tsort <<< "${EFFICIENT_SHELL_DependencyGraph}"`
+    # e.g. The package loading order of the example illustrated in EFFICIENT_SHELL_DependencyGraph is:
+    #   pck11
+    #   pck12
+    #   pck_c
+    #   pck_x
+    #   pck_a
+    #   pck_b
+    local EFFICIENT_SHELL_PackageLoadingOrder=""
     # compute the package loading order
-    EFFICIENT_SHELL_SolveDependencies    || return 12
+    EFFICIENT_SHELL_PackageLoadingOrder="$(EFFICIENT_SHELL_SolveDependencies "${EFFICIENT_SHELL_DependencyGraph}")"
+    [ $? -ne 0 ] && return 12
+    EFFICIENT_SHELL_Log "EFFICIENT_SHELL_PackageLoadingOrder:\n$(tr '\n' ' ' <<< "${EFFICIENT_SHELL_PackageLoadingOrder}")"
 
+    # the list of missing dependencies
+    # If, when loading packages, (in the order specified in EFFICIENT_SHELL_PackageLoadingOrder)
+    # a package is not found, then its name is added to EFFICIENT_SHELL_MissingPackages
+    local EFFICIENT_SHELL_MissingPackages=""
     # check that all packages are available
-    EFFICIENT_SHELL_CheckPackages        || return 13
+    EFFICIENT_SHELL_MissingPackages="$(EFFICIENT_SHELL_CheckPackages $(tr '\n' ' ' <<< "${EFFICIENT_SHELL_PackageLoadingOrder}"))"
+    [ $? -ne 0 ] && return 13
+    EFFICIENT_SHELL_Log "Found all packages"
 
     # load packages
-    EFFICIENT_SHELL_LoadPackages         || return 14
+    EFFICIENT_SHELL_LoadPackages $(tr '\n' ' ' <<< "${EFFICIENT_SHELL_PackageLoadingOrder}")
+    [ $? -ne 0 ] && return 14
+    EFFICIENT_SHELL_Log "Ready to go!"
 }
 
 # init
