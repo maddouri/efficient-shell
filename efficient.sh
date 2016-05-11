@@ -9,7 +9,7 @@ export EFFICIENT_SHELL_Verbose=1
 # EFFICIENT_SHELL_Log <args...>
 # executes `echo <args...>` iff EFFICIENT_SHELL_Verbose is true
 alias EFFICIENT_SHELL_Log='test ${EFFICIENT_SHELL_Verbose} && echo -e "EFFICIENT_SHELL:"'
-
+# prints error messages to stderr
 alias EFFICIENT_SHELL_Error='>&2 echo -e "EFFICIENT_SHELL @ ${FUNCNAME}:"'
 
 # path to efficient.sh (i.e. this file)
@@ -67,7 +67,6 @@ function EFFICIENT_SHELL_FactorAndTrimSpaces() {
 # print aligned columns from CSV-like, multiline string
 # (almost) pure-shell script replacement for `column` from `bsdmainutils`
 # requires [head, grep, wc, sed, awk] which should be available everywhere
-# EFFICIENT_SHELL_ColumnWidth is a "commanion function"
 function EFFICIENT_SHELL_Columnize() {  # <inputMultilineString> <inputColumnSeparator> [<outputColumnSeparator>]
     # read input
     local inputString="$1"
@@ -88,10 +87,11 @@ function EFFICIENT_SHELL_Columnize() {  # <inputMultilineString> <inputColumnSep
     local colWidths=()
     for ((colNum=1; colNum<=colCount; colNum++)) ; do
         local fieldColumn
-        fieldColumn="$(awk -F "${sep}"  '{print $'"${colNum}"'}' <<< "${inputString}")"  # http://www.joeldare.com/wiki/using_awk_on_csv_files
+        fieldColumn="$(awk -F "${sep}" '{print $'"${colNum}"'}' <<< "${inputString}")"  # http://www.joeldare.com/wiki/using_awk_on_csv_files
         # length of the longest line
         colWidths+=( $(
-            lines=( $(IFS=$'\n' echo "${fieldColumn}") );  # https://stackoverflow.com/a/8768435/865719
+            IFS=$'\n';  # https://stackoverflow.com/a/8768435/865719
+            lines=( $(echo "${fieldColumn}") );
             maxLen=0;
             for line in "${lines[@]}" ; do
                 if [ ${#line} -gt ${maxLen} ] ; then maxLen=${#line}; fi;
@@ -127,6 +127,17 @@ function EFFICIENT_SHELL_Columnize() {  # <inputMultilineString> <inputColumnSep
     )
 }
 
+# reads the provided <configFile> and prints out an associative array
+# representing the `<property>="<value>"` structure of the file
+# e.g. For package/j/efficient.cfg, this function outputs the following string:
+#   declare -A properties='([depend]="g" [name]="j" [config]="/efficient-shell/package/j/efficient.cfg" [main]="src/j.sh" [dir]="/efficient-shell/package/j" )'
+# The above string DOES contain `declare -A properties=...`
+# This is a trick to "return" an associative array from a function
+# Therefore, to "get" the returned array, the caller has to use the `eval` command
+# e.g. The following code calls EFFICIENT_SHELL_ParseConfigFile then
+# creates the `properties` array from the its output:
+#   local pckInfo="$(EFFICIENT_SHELL_ParseConfigFile "${configFilePath}")"
+#   eval "declare -A properties=${pckInfo#*=}"
 function EFFICIENT_SHELL_ParseConfigFile() {  # <configFile>
     local configFile="$1"
     if [ -f "${configFile}" ] ; then
@@ -158,11 +169,12 @@ function EFFICIENT_SHELL_ParseConfigFile() {  # <configFile>
     fi
 }
 
-function EFFICIENT_SHELL_ListPackages() {  # <fields> [<field>...]
-    if [ $# -eq 0 ] ; then
-        EFFICIENT_SHELL_Error "Valid fields:" $EFFICIENT_SHELL_PackageConfigProperty_{Name,Main,Depend,Directory,ConfigFile}
-        return 1
-    fi
+# Outputs the list of installed packages alon with their properties
+# Valid properties are EFFICIENT_SHELL_PackageConfigProperty_*
+# If no <field> is provied, this function prints all the properties of all packags
+function EFFICIENT_SHELL_ListPackages() {  # [<field>...]
+    # print all fields by default
+    [ $# -eq 0 ] && eval set -- "$(echo $EFFICIENT_SHELL_PackageConfigProperty_{Name,Main,Depend,Directory,ConfigFile})"
 
     # validate that $@ contains words from EFFICIENT_SHELL_PackageConfigProperty_*
     local infoName
@@ -205,26 +217,26 @@ function EFFICIENT_SHELL_ListPackages() {  # <fields> [<field>...]
     EFFICIENT_SHELL_Columnize "${resultString}" "${columnSeparator}" "  "
 }
 
+# Outputs information about a given package
 function EFFICIENT_SHELL_GetPackageInfo() {  # <pckName> [<infoName>]
     local pckName="$1"
     local infoName="$2"
+
+    local outputString=""
+    # if a specific property name has been provided, print it
     if [ -n "${infoName}" ] ; then
-        local info
-        info="$(
+        outputString="$(
             EFFICIENT_SHELL_ListPackages "${EFFICIENT_SHELL_PackageConfigProperty_Name}" "${infoName}" |
             grep "^\s*${pckName}"   |
             sed -e "s/${pckName}//" |
             EFFICIENT_SHELL_TrimSpaces
         )"
-        echo "${info}"
+    # if no property name has been provided, print all of them
     else
-        local infos
-        infos="$(
-            EFFICIENT_SHELL_ListPackages "${EFFICIENT_SHELL_PackageConfigProperty_Name}" "${EFFICIENT_SHELL_PackageConfigProperty_Main}" "${EFFICIENT_SHELL_PackageConfigProperty_Depend}" "${EFFICIENT_SHELL_PackageConfigProperty_Directory}" |
-            grep "${pckName}"
-        )"
-        echo "${infos}"
+        outputString="$(EFFICIENT_SHELL_ListPackages | grep "^\s*${pckName}")"
     fi
+
+    echo "${outputString}"
 }
 
 # generates a list of installed packages in EFFICIENT_SHELL_Packages:
@@ -232,22 +244,18 @@ function EFFICIENT_SHELL_GetPackageInfo() {  # <pckName> [<infoName>]
 #  pck2
 #  ...
 function EFFICIENT_SHELL_CreatePackageList() {
-    EFFICIENT_SHELL_Packages=$(
-        EFFICIENT_SHELL_ListPackages "${EFFICIENT_SHELL_PackageConfigProperty_Name}" |  # get the package list
-        EFFICIENT_SHELL_FactorAndTrimSpaces
-    )
-    EFFICIENT_SHELL_Log "EFFICIENT_SHELL_Packages:\n$(tr '\n' ' ' <<< "${EFFICIENT_SHELL_Packages}")"
+    EFFICIENT_SHELL_ListPackages "${EFFICIENT_SHELL_PackageConfigProperty_Name}" |\
+    EFFICIENT_SHELL_FactorAndTrimSpaces
 }
 
 # finds the dependencies between the installed packages
 # outputs the dependency graph in EFFICIENT_SHELL_DependencyGraph
 # the dependency graph is formatted according to the format accepted by tsort https://en.wikipedia.org/wiki/Tsort
-function EFFICIENT_SHELL_BuildDependencyGraph() {
-    # reset dependency graph (global variable)
-    EFFICIENT_SHELL_DependencyGraph=""
+function EFFICIENT_SHELL_BuildDependencyGraph() {  # <pck> [<pck>...]
+    local dependencyGraph=""
 
     local pckName
-    for pckName in ${EFFICIENT_SHELL_Packages} ; do
+    for pckName in "$@" ; do
 
         #EFFICIENT_SHELL_Log "Processing [${pckName}]"
 
@@ -271,60 +279,58 @@ function EFFICIENT_SHELL_BuildDependencyGraph() {
             #   ...
             for d in ${pckDepend} ; do  # don't use "${depend}"  (i.e. no quotes)
                 # append the dependency list to the dependency graph
-                EFFICIENT_SHELL_DependencyGraph+=$'\n'"${d} ${pckName}"
+                dependencyGraph+=$'\n'"${d} ${pckName}"
             done
         # this package doesn't have dependencies
         else
             # https://en.wikipedia.org/wiki/Tsort#Usage_notes
             # Pairs of identical items indicate presence of a vertex, but not ordering
             # (so the following represents one vertex without edges):
-            EFFICIENT_SHELL_DependencyGraph+=$'\n'"${pckName} ${pckName}"
+            dependencyGraph+=$'\n'"${pckName} ${pckName}"
         fi
-
     done
 
-    #
-    EFFICIENT_SHELL_Log "EFFICIENT_SHELL_DependencyGraph:${EFFICIENT_SHELL_DependencyGraph}"
+    echo "${dependencyGraph}"
 }
 
 # computes the package loading order from the dependency graph generated by EFFICIENT_SHELL_BuildDependencyGraph
 # outputs the loading order in ${EFFICIENT_SHELL_PackageLoadingOrder}
-function EFFICIENT_SHELL_SolveDependencies() {
+function EFFICIENT_SHELL_SolveDependencies() {  # <dependencyGraph>
+    local dependencyGraph="$1"
+
     # @TODO reduce dependency to external tools by replacing tsort with pure-shell implementation
     # http://rosettacode.org/wiki/Topological_sort#UNIX_Shell
 
-    # topological sort of the dependency graph (global variable)
-    EFFICIENT_SHELL_PackageLoadingOrder=$(tsort <<< "${EFFICIENT_SHELL_DependencyGraph}")
-
-    EFFICIENT_SHELL_Log "EFFICIENT_SHELL_PackageLoadingOrder:\n$(tr '\n' ' ' <<< ${EFFICIENT_SHELL_PackageLoadingOrder})"
+    # topological sort of the dependency graph
+    tsort <<< "${dependencyGraph}"
 }
 
 # checks that the required packages are actually installed
-function EFFICIENT_SHELL_CheckPackages() {
-    EFFICIENT_SHELL_MissingPackages=""
+function EFFICIENT_SHELL_CheckPackages() {  # <pck> [<pck>...]
+    local missingPackages=""
 
     # call the function on each package directory
     local pckName
-    for pckName in ${EFFICIENT_SHELL_PackageLoadingOrder} ; do
+    for pckName in "$@" ; do
         local pckInfo
         pckInfo="$(EFFICIENT_SHELL_GetPackageInfo "${pckName}")"
-        if [ ! -n "${pckInfo}" ] ; then
-            EFFICIENT_SHELL_MissingPackages+=$'\n'
-            EFFICIENT_SHELL_MissingPackages+="${pckName}"
-            EFFICIENT_SHELL_Error "missing [${pckName}]"
+        if [ -z "${pckInfo}" ] ; then
+            missingPackages+=$'\n'"${pckName}"
+            #EFFICIENT_SHELL_Error "missing [${pckName}]"
         fi
     done
 
-    if [ -n "${EFFICIENT_SHELL_MissingPackages}" ] ; then
-        EFFICIENT_SHELL_Error "some packages are missing [$(tr '\n' ' ' <<< ${EFFICIENT_SHELL_MissingPackages})]"
+    if [ -n "${missingPackages}" ] ; then
+        EFFICIENT_SHELL_Error "some packages are missing [$(tr '\n' ' ' <<< "${missingPackages}")]"
+        echo "${missingPackages}"
         return 1
     fi
 }
 
 # loads the packages in the order specified in EFFICIENT_SHELL_PackageLoadingOrder
-function EFFICIENT_SHELL_LoadPackages() {
+function EFFICIENT_SHELL_LoadPackages() {  # <pck> [<pck>...]
     local pckName
-    for pckName in ${EFFICIENT_SHELL_PackageLoadingOrder} ; do
+    for pckName in "$@" ; do
         local pckDir
         local pckMainInfo
         local pckMain
@@ -349,7 +355,16 @@ function EFFICIENT_SHELL_Init() {
 
     # package list
     # Deduced from the packages in EFFICIENT_SHELL_PackageDirectory
+    # Format
+    #   pck1
+    #   pck2
+    #   ...
     local EFFICIENT_SHELL_Packages=""
+    # populate EFFICIENT_SHELL_Packages
+    EFFICIENT_SHELL_Packages="$(EFFICIENT_SHELL_CreatePackageList)"
+    [ $? -ne 0 ] && return 10
+    EFFICIENT_SHELL_Log "EFFICIENT_SHELL_Packages:\n$(tr '\n' ' ' <<< "${EFFICIENT_SHELL_Packages}")"
+
     # dependency graph
     # Has a format compatible with the `tsort` command: https://en.wikipedia.org/wiki/Tsort#Usage_notes
     # e.g. If there are 2 packages -- pck_a and pck_b -- that are to be loaded
@@ -374,6 +389,11 @@ function EFFICIENT_SHELL_Init() {
     #   pck_x pck_x
     # Note that the order doesn't matter
     local EFFICIENT_SHELL_DependencyGraph=""
+    # build the dependency graph
+    EFFICIENT_SHELL_DependencyGraph="$(EFFICIENT_SHELL_BuildDependencyGraph $(tr '\n' ' ' <<<"${EFFICIENT_SHELL_Packages}"))"
+    [ $? -ne 0 ] && return 11
+    EFFICIENT_SHELL_Log "EFFICIENT_SHELL_DependencyGraph:${EFFICIENT_SHELL_DependencyGraph}"
+
     # the package list, sorted by the order in which the packages are to be loaded
     # This is the results of `tsort <<< "${EFFICIENT_SHELL_DependencyGraph}"`
     # e.g. The package loading order of the example illustrated in EFFICIENT_SHELL_DependencyGraph is:
@@ -384,26 +404,24 @@ function EFFICIENT_SHELL_Init() {
     #   pck_a
     #   pck_b
     local EFFICIENT_SHELL_PackageLoadingOrder=""
+    # compute the package loading order
+    EFFICIENT_SHELL_PackageLoadingOrder="$(EFFICIENT_SHELL_SolveDependencies "${EFFICIENT_SHELL_DependencyGraph}")"
+    [ $? -ne 0 ] && return 12
+    EFFICIENT_SHELL_Log "EFFICIENT_SHELL_PackageLoadingOrder:\n$(tr '\n' ' ' <<< "${EFFICIENT_SHELL_PackageLoadingOrder}")"
+
     # the list of missing dependencies
     # If, when loading packages, (in the order specified in EFFICIENT_SHELL_PackageLoadingOrder)
     # a package is not found, then its name is added to EFFICIENT_SHELL_MissingPackages
     local EFFICIENT_SHELL_MissingPackages=""
-
-
-    # populate EFFICIENT_SHELL_Packages
-    EFFICIENT_SHELL_CreatePackageList    || return 10
-
-    # build the dependency graph
-    EFFICIENT_SHELL_BuildDependencyGraph || return 11
-
-    # compute the package loading order
-    EFFICIENT_SHELL_SolveDependencies    || return 12
-
     # check that all packages are available
-    EFFICIENT_SHELL_CheckPackages        || return 13
+    EFFICIENT_SHELL_MissingPackages="$(EFFICIENT_SHELL_CheckPackages $(tr '\n' ' ' <<< "${EFFICIENT_SHELL_PackageLoadingOrder}"))"
+    [ $? -ne 0 ] && return 13
+    EFFICIENT_SHELL_Log "Found all packages"
 
     # load packages
-    EFFICIENT_SHELL_LoadPackages         || return 14
+    EFFICIENT_SHELL_LoadPackages $(tr '\n' ' ' <<< "${EFFICIENT_SHELL_PackageLoadingOrder}")
+    [ $? -ne 0 ] && return 14
+    EFFICIENT_SHELL_Log "Ready to go!"
 }
 
 # init
