@@ -167,3 +167,16 @@ To make this into an `efficient.sh` package, let's call it `efficient-cd`, we ju
     ```
 
 This is a very simple example of what you can do in a package, check out the [pre-installed packages](package) for more examples.
+
+# TODO
+
+Efficient Shell is a work in progress. (although, the `master` branch is reliable for everyday use)
+
+Here are my current goals: (feel free to suggest your own ideas by opening a new [issue](https://github.com/maddouri/efficient-shell/issues))
+
+* [ ] Refactor/cleanup/simplify `efficient.sh`'s code
+* [x] Simplify package structure
+* [ ] Create an interface _à la_ `apt-get`
+* [ ] Add an `install` command to fetch packages from local and remote sources
+* [ ] Add more management commands (e.g. `update`, `remouve`, etc.)
+* [ ] Add documentation

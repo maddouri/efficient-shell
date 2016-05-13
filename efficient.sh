@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 
+# @TODO submit to https://curlpipesh.tumblr.com/
+
 # indicate that efficient-shell is available
 readonly EFFICIENT_SHELL=1
 
