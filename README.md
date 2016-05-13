@@ -36,19 +36,19 @@ A collection of scripts/functions/aliases/etc. is referred to as a **package**.
 1. Clone this repository somewhere on your machine:
 
     ```sh
-    git clone https://github.com/maddouri/efficient-shell.git "~/.efficient-shell"
+    git clone https://github.com/maddouri/efficient-shell.git "${HOME}/.efficient-shell"
     ```
 
 2. Add `efficient.sh` to your `.bashrc`:
 
     ```sh
-    echo "source ~/.efficient-shell/efficient.sh" >> "~/.bashrc"
+    echo "source ${HOME}/.efficient-shell/efficient.sh" >> "${HOME}/.bashrc"
     ```
 
 3. Restart the shell or simply:
 
     ```sh
-    source "~/.efficient-shell/efficient.sh"
+    source "${HOME}/.efficient-shell/efficient.sh"
     ```
 
 4. Done! You can now either:
@@ -60,14 +60,14 @@ A collection of scripts/functions/aliases/etc. is referred to as a **package**.
 
 `efficient.sh` assumes that packages are stored in the `${EFFICIENT_SHELL_Root}/package` directory.
 `${EFFICIENT_SHELL_Root}` is the directory where `efficient.sh` has been installed.
-(e.g. `~/.efficient-shell` in the usage example)
+(e.g. `${HOME}/.efficient-shell` in the usage example)
 
 A typical package `p` is a directory `${EFFICIENT_SHELL_Root}/package/p` that has a configuration file named `efficient.cfg` and, at least, one shell script file to be `source`'d when the shell starts.
 
 Our example's `p` package can, for instance, have the following, minimal structure:
 
 ```
-~/.efficient-shell/package/p
+${HOME}/.efficient-shell/package/p
 ├── efficient.cfg
 └── pp.sh
 ```
@@ -103,7 +103,7 @@ depend=""
 <a name="make-your-own-package"></a>
 ## Make Your Own Package
 
-This is a walkthrough on how to make a simple package. We'll assume that `efficient.sh` is installed in `~/.efficient-shell`.
+This is a walkthrough on how to make a simple package. We'll assume that `efficient.sh` is installed in `${HOME}/.efficient-shell`.
 
 Suppose you have a collection of handy aliases, related to a particular task, that you use frequently:
 ```sh
@@ -113,21 +113,21 @@ alias up='cd ..'
 alias bk='cd -'
 ```
 
-Usually, they are put, along with other unrelated aliases, in `~/.bash_aliases`, which is then `source`d in `~/.bashrc`: `source ~/.bash_aliases`
+Usually, they are put, along with other unrelated aliases, in `${HOME}/.bash_aliases`, which is then `source`d in `${HOME}/.bashrc`: `source ${HOME}/.bash_aliases`
 
 To make this into an `efficient.sh` package, let's call it `efficient-cd`, we just have to:
 
 1. Create a minimal package directory structure:
 
     ```sh
-    mkdir --parents ~/.efficient-shell/package/efficient-cd/src
+    mkdir --parents ${HOME}/.efficient-shell/package/efficient-cd/src
     ```
 
 1. Create the script that will be `source`'d:
 
     ```sh
-    vim ~/.efficient-shell/package/efficient-cd/src/aliases.sh
-    # put this in ~/.efficient-shell/package/efficient-cd/src/aliases.sh
+    vim ${HOME}/.efficient-shell/package/efficient-cd/src/aliases.sh
+    # put this in ${HOME}/.efficient-shell/package/efficient-cd/src/aliases.sh
     # cd to parent directory
     alias up='cd ..'
     # cd to previous directory
@@ -137,8 +137,8 @@ To make this into an `efficient.sh` package, let's call it `efficient-cd`, we ju
 1. Add the package configuration file:
 
     ```sh
-    vim ~/.efficient-shell/package/efficient-cd/efficient.cfg
-    # put this in ~/.efficient-shell/package/efficient-cd/efficient.cfg
+    vim ${HOME}/.efficient-shell/package/efficient-cd/efficient.cfg
+    # put this in ${HOME}/.efficient-shell/package/efficient-cd/efficient.cfg
     main="efficient-cd"
     main="src/aliases.sh"
     depend=""
@@ -147,7 +147,7 @@ To make this into an `efficient.sh` package, let's call it `efficient-cd`, we ju
 1. The package directory should now look like this:
 
     ```
-    ~/.efficient-shell/package/efficient-cd
+    ${HOME}/.efficient-shell/package/efficient-cd
     ├── efficient.cfg
     └── src
         └── aliases.sh
@@ -156,7 +156,7 @@ To make this into an `efficient.sh` package, let's call it `efficient-cd`, we ju
 1. Restart the shell or:
 
     ```sh
-    source "~/.efficient-shell/efficient.sh"
+    source "${HOME}/.efficient-shell/efficient.sh"
     ```
 
 1. That's it! The `efficient.sh` package is now loaded. You can try the aliases that it provides:
