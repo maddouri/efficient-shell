@@ -17,6 +17,7 @@ Easy management of scripts, functions and aliases for an efficient experience in
 - [Usage](#usage)
 - [Packages Structure](#packages-structure)
 - [Make Your Own Package](#make-your-own-package)
+- [TODO](#todo)
 
 <!-- END doctoc generated TOC please keep comment here to allow auto update -->
 
@@ -168,7 +169,7 @@ To make this into an `efficient.sh` package, let's call it `efficient-cd`, we ju
 
 This is a very simple example of what you can do in a package, check out the [pre-installed packages](package) for more examples.
 
-# TODO
+## TODO
 
 Efficient Shell is a work in progress. (although, the `master` branch is reliable for everyday use)
 
