@@ -178,5 +178,5 @@ Here are my current goals: (feel free to suggest your own ideas by opening a new
 * [x] Simplify package structure
 * [ ] Create an interface _à la_ `apt-get`
 * [ ] Add an `install` command to fetch packages from local and remote sources
-* [ ] Add more management commands (e.g. `update`, `remouve`, etc.)
+* [ ] Add more management commands (e.g. `update`, `remove`, etc.)
 * [ ] Add documentation
