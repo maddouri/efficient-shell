@@ -55,3 +55,28 @@ EndOfUsage
 
     cd "${destination}"
 }
+
+up_ProgrammableCompletion() {
+
+    local current_index=${COMP_CWORD}
+    local current_word="${COMP_WORDS[COMP_CWORD]}"
+    local previous_word="${COMP_WORDS[COMP_CWORD-1]}"
+
+    local candidate_list
+
+    # option
+    if [ ${current_index} -eq 1 ] && [[ "${current_word}" == -* ]] ; then
+        candidate_list="--help -h"
+        COMPREPLY=($(compgen -W "${candidate_list}" -- "${current_word}"))
+    # get list of directories forming the current path
+    elif [ ${current_index} -eq 1 ] ; then
+        # '/curent/working/directory/path' > "'curent' 'working' 'directory' 'path'"
+        candidate_list="$(IFS=$'\n' sed -e 's:/:\n:g' <<< "${PWD}")"
+        COMPREPLY=($(compgen -W "${candidate_list}" -- "${current_word}"))
+    fi
+
+    return 0
+}
+
+# register j_ProgrammableCompletion to provide completion for j
+complete -F up_ProgrammableCompletion up
