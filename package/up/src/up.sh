@@ -13,6 +13,8 @@ EndOfUsage
 
     local destination=""
 
+    # @TODO fix bug when DIRECTORY_NAME is a number (e.g. allow adding / to the name ?)
+
     case "$#" in
         '0')
             destination=".."
@@ -26,6 +28,9 @@ EndOfUsage
                     return 0
                 ;;
                 *[!0-9]*)  # not a number
+                    # don't do anything if requesting to cd to the current directory
+                    [ "${arg}" == "$(basename "${PWD}")" ] && return 0
+
                     # find the last occurence of "${arg}"
                     # @TODO we should have some autocomletion for this
                     # @TODO switch the sed regex separator from / to something else if arg contains /
@@ -37,13 +42,17 @@ EndOfUsage
                     fi
                 ;;
                 *)  # number
-                    if [ "${arg}" -lt 1 ] ; then
+                    if [ "${arg}" -lt 0 ] ; then
                         >&2 echo "[LEVEL_COUNT:${arg}] must be >= 1"
                         >&2 echo "${USAGE}"
                         return 2
                     fi
+
+                    # don't do anything if requesting to cd to the current directory
+                    [ "${arg}" -eq 0 ] && return 0
+
                     # https://stackoverflow.com/a/17030976/865719
-                    destination="$(printf "%0.s../" "$(seq 1 "${arg}")")"
+                    destination="$(printf "%0.s../" $(seq 1 ${arg}))"
                 ;;
             esac
         ;;
