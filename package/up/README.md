@@ -17,7 +17,7 @@
 # OPTIONS
 
 * no arguments     : Same as `cd ..`
-* `LEVEL_COUNT`    : Goes `LEVEL_COUNT` levels up in the current hierarchy. Must be `>= 1`
+* `LEVEL_COUNT`    : Goes `LEVEL_COUNT` levels up in the current hierarchy. Must be `>= 0`
 * `DIRECTORY_NAME` : Goes to the last directory named `DIRECTORY_NAME` in the current hierarchy
 * `--help`, `-h`   : Shows this help
 
