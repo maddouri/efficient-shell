@@ -10,9 +10,15 @@ export EFFICIENT_SHELL_Verbose=1
 
 # EFFICIENT_SHELL_Log <args...>
 # executes `echo <args...>` iff EFFICIENT_SHELL_Verbose is true
-alias EFFICIENT_SHELL_Log='test ${EFFICIENT_SHELL_Verbose} && echo -e "EFFICIENT_SHELL:"'
+#alias EFFICIENT_SHELL_Log='test ${EFFICIENT_SHELL_Verbose} && echo -e "EFFICIENT_SHELL:"'
+function EFFICIENT_SHELL_Log() {
+    test ${EFFICIENT_SHELL_Verbose} && echo -e "EFFICIENT_SHELL: $@"
+}
 # prints error messages to stderr
-alias EFFICIENT_SHELL_Error='>&2 echo -e "EFFICIENT_SHELL @ ${FUNCNAME}:"'
+#alias EFFICIENT_SHELL_Error='>&2 echo -e "EFFICIENT_SHELL @ ${FUNCNAME}:"'
+function EFFICIENT_SHELL_Error() {
+    >&2 echo -e "EFFICIENT_SHELL @ ${FUNCNAME[1]}: $@"
+}
 
 # path to efficient.sh (i.e. this file)
 readonly EFFICIENT_SHELL_MainScript="$(readlink -f "${BASH_SOURCE[0]}")"
