@@ -284,7 +284,14 @@ function EFFICIENT_SHELL_BuildDependencyGraph() {  # <pck> [<pck>...]
     local pckName
     for pckName in "$@" ; do
 
-        #EFFICIENT_SHELL_Log "Processing [${pckName}]"
+        ## add the package's "vertex"
+
+        # pairs of identical items indicate presence of a vertex, but not ordering
+        # so the following represents one vertex (without edges yet)
+        # https://en.wikipedia.org/wiki/Tsort#Usage_notes
+        dependencyGraph+=$'\n'"${pckName} ${pckName}"
+
+        ## add the dependencies' "edges"
 
         # get the dependency list in the form "dep1 dep2 ..."
         # this way, it can be iterated over
@@ -294,27 +301,18 @@ function EFFICIENT_SHELL_BuildDependencyGraph() {  # <pck> [<pck>...]
             sed -e "s/${pckName}//" |
             EFFICIENT_SHELL_FactorAndTrimSpaces
         )"
-
-        #EFFICIENT_SHELL_Log "pckDepend [${pckDepend}]"
-
         # this package has dependencies
         if [ -n "${pckDepend}" ] ; then
-            # parse the package's dependency list
-            # the goal is get it in the form:
+            # create the package's dependency "edges"
+            # the goal is get a list the form:
             #   dep1 this_package
             #   dep2 this_package
             #   ...
-            for d in ${pckDepend} ; do  # don't use "${depend}"  (i.e. no quotes)
-                # append the dependency list to the dependency graph
+            for d in ${pckDepend} ; do  # don't use "${pckDepend}"  (i.e. no quotes)
                 dependencyGraph+=$'\n'"${d} ${pckName}"
             done
-        # this package doesn't have dependencies
-        else
-            # https://en.wikipedia.org/wiki/Tsort#Usage_notes
-            # Pairs of identical items indicate presence of a vertex, but not ordering
-            # (so the following represents one vertex without edges):
-            dependencyGraph+=$'\n'"${pckName} ${pckName}"
         fi
+
     done
 
     echo "${dependencyGraph}"
