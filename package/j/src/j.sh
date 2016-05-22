@@ -77,44 +77,45 @@ EndOfUsage
     case "$1" in
         '--')
             shift  # get rid of '--'
-            # j : pretty print the bookmarks file
-            if [ $# -eq 0 ] ; then
-                j_prettyprint
-            # j <entry> : jump to the bookmark
-            elif [ $# -eq 1 ] ; then
-                local entry="$1"
-                # get the first occurence of the entry
-                local destination=$(sed -n -e "0,/${rePrefix}${entry}${reSeparator}\(${rePath}\)${reSuffix}/s//\1/p" "${bookmarkFile}")
-                if [ -n "${destination}" ] ; then
-                    # go there
-                    g "${destination}"
-                else
-                    >&2 echo "[${entry}] not found"
-                    return 2
-                fi
-            # j <entry> <path_at_entry> : equivalent to: jump to bookmark then go to the given relative path
-            elif [ $# -eq 2 ] ; then
-                local entry="$1"
-                local path_at_entry="$2"
+            case $# in
+                0) # j : pretty print the bookmarks file
+                    j_prettyprint
+                ;;
+                1) # j <entry> : jump to the bookmark
+                    local entry="$1"
+                    # get the first occurence of the entry
+                    local destination=$(sed -n -e "0,/${rePrefix}${entry}${reSeparator}\(${rePath}\)${reSuffix}/s//\1/p" "${bookmarkFile}")
+                    if [ -n "${destination}" ] ; then
+                        # go there
+                        g "${destination}"
+                    else
+                        >&2 echo "[${entry}] not found"
+                        return 2
+                    fi
+                ;;
+                2) # j <entry> <path_at_entry> : equivalent to: jump to bookmark then go to the given relative path
+                    local entry="$1"
+                    local path_at_entry="$2"
 
-                # straightforward implementation, doesn't allow 'cd -' to the actual OLDPWD
-                #j "${entry}" && g "${path_at_entry}"
+                    # straightforward implementation, doesn't allow 'cd -' to the actual OLDPWD
+                    #j "${entry}" && g "${path_at_entry}"
 
-                # WET implementation, needs refactoring
-                # get the first occurence of the entry
-                local destination=$(sed -n -e "0,/${rePrefix}${entry}${reSeparator}\(${rePath}\)${reSuffix}/s//\1/p" "${bookmarkFile}")
-                destination+="/${path_at_entry}"
-                if [ -n "${destination}" ] ; then
-                    # go there
-                    g "${destination}"
-                else
-                    >&2 echo "[${entry}] not found"
-                    return 3
-                fi
-            else
-                >&2 echo "${USAGE}"
-                return 4
-            fi
+                    # WET implementation, needs refactoring
+                    # get the first occurence of the entry
+                    local destination=$(sed -n -e "0,/${rePrefix}${entry}${reSeparator}\(${rePath}\)${reSuffix}/s//\1/p" "${bookmarkFile}")
+                    destination+="/${path_at_entry}"
+                    if [ -n "${destination}" ] ; then
+                        g "${destination}"
+                    else
+                        >&2 echo "[${entry}] not found"
+                        return 3
+                    fi
+                ;;
+                *)
+                    >&2 echo "${USAGE}"
+                    return 4
+                ;;
+            esac
         ;;
         '--add'|'-a')
             #echo "[@:$@]"
