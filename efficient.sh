@@ -49,7 +49,7 @@ readonly EFFICIENT_SHELL_PackageConfigFileName="efficient.cfg"
 # package properties (to put in the config file)
 readonly EFFICIENT_SHELL_PackageConfigProperty_Name="name"          # package name (not required to be the same as the package directory's)
 readonly EFFICIENT_SHELL_PackageConfigProperty_Main="main"          # main file to `source`
-readonly EFFICIENT_SHELL_PackageConfigProperty_Depend="depend"      # (optional) space-separated list of packages on which the package depends
+readonly EFFICIENT_SHELL_PackageConfigProperty_Depend="depend"      # space-separated list of packages on which the package depends
 # other properties (deduced/don't appear in the config file)
 readonly EFFICIENT_SHELL_PackageConfigProperty_Directory="dir"      # package directory
 readonly EFFICIENT_SHELL_PackageConfigProperty_ConfigFile="config"  # config file path
@@ -219,6 +219,25 @@ function EFFICIENT_SHELL_ListPackages() {  # [<field>...]
     EFFICIENT_SHELL_Columnize "${resultString}" "${columnSeparator}" "  "
 }
 
+# Returns 0 if the <pckName> exists and 1 otherwise
+function EFFICIENT_SHELL_PackageInstalled() {  # <pckName>
+    if [ $# -ne 1 ] ; then
+        EFFICIENT_SHELL_Error "Expected <pckName>, received [$@]"
+        return 2
+    fi
+
+    local pckName="$1"
+    local outputString=""
+    outputString="$(
+        EFFICIENT_SHELL_ListPackages "${EFFICIENT_SHELL_PackageConfigProperty_Name}"  |
+        grep "^\s*${pckName}"  |
+        EFFICIENT_SHELL_TrimSpaces
+    )"
+
+    test -n "${outputString}"
+    return $?
+}
+
 # Outputs information about a given package
 function EFFICIENT_SHELL_GetPackageInfo() {  # <pckName> [<infoName>]
     local pckName="$1"
@@ -314,11 +333,8 @@ function EFFICIENT_SHELL_CheckPackages() {  # <pck> [<pck>...]
     # call the function on each package directory
     local pckName
     for pckName in "$@" ; do
-        local pckInfo
-        pckInfo="$(EFFICIENT_SHELL_GetPackageInfo "${pckName}")"
-        if [ -z "${pckInfo}" ] ; then
+        if ! EFFICIENT_SHELL_PackageInstalled "${pckName}" ; then
             missingPackages+=$'\n'"${pckName}"
-            #EFFICIENT_SHELL_Error "missing [${pckName}]"
         fi
     done
 
