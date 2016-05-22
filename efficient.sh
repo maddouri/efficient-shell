@@ -10,9 +10,15 @@ export EFFICIENT_SHELL_Verbose=1
 
 # EFFICIENT_SHELL_Log <args...>
 # executes `echo <args...>` iff EFFICIENT_SHELL_Verbose is true
-alias EFFICIENT_SHELL_Log='test ${EFFICIENT_SHELL_Verbose} && echo -e "EFFICIENT_SHELL:"'
+#alias EFFICIENT_SHELL_Log='test ${EFFICIENT_SHELL_Verbose} && echo -e "EFFICIENT_SHELL:"'
+function EFFICIENT_SHELL_Log() {
+    test ${EFFICIENT_SHELL_Verbose} && echo -e "EFFICIENT_SHELL: $@"
+}
 # prints error messages to stderr
-alias EFFICIENT_SHELL_Error='>&2 echo -e "EFFICIENT_SHELL @ ${FUNCNAME}:"'
+#alias EFFICIENT_SHELL_Error='>&2 echo -e "EFFICIENT_SHELL @ ${FUNCNAME}:"'
+function EFFICIENT_SHELL_Error() {
+    >&2 echo -e "EFFICIENT_SHELL @ ${FUNCNAME[1]}: $@"
+}
 
 # path to efficient.sh (i.e. this file)
 readonly EFFICIENT_SHELL_MainScript="$(readlink -f "${BASH_SOURCE[0]}")"
@@ -49,7 +55,7 @@ readonly EFFICIENT_SHELL_PackageConfigFileName="efficient.cfg"
 # package properties (to put in the config file)
 readonly EFFICIENT_SHELL_PackageConfigProperty_Name="name"          # package name (not required to be the same as the package directory's)
 readonly EFFICIENT_SHELL_PackageConfigProperty_Main="main"          # main file to `source`
-readonly EFFICIENT_SHELL_PackageConfigProperty_Depend="depend"      # (optional) space-separated list of packages on which the package depends
+readonly EFFICIENT_SHELL_PackageConfigProperty_Depend="depend"      # space-separated list of packages on which the package depends
 # other properties (deduced/don't appear in the config file)
 readonly EFFICIENT_SHELL_PackageConfigProperty_Directory="dir"      # package directory
 readonly EFFICIENT_SHELL_PackageConfigProperty_ConfigFile="config"  # config file path
@@ -219,6 +225,25 @@ function EFFICIENT_SHELL_ListPackages() {  # [<field>...]
     EFFICIENT_SHELL_Columnize "${resultString}" "${columnSeparator}" "  "
 }
 
+# Returns 0 if the <pckName> exists and 1 otherwise
+function EFFICIENT_SHELL_PackageInstalled() {  # <pckName>
+    if [ $# -ne 1 ] ; then
+        EFFICIENT_SHELL_Error "Expected <pckName>, received [$@]"
+        return 2
+    fi
+
+    local pckName="$1"
+    local outputString=""
+    outputString="$(
+        EFFICIENT_SHELL_ListPackages "${EFFICIENT_SHELL_PackageConfigProperty_Name}"  |
+        grep "^\s*${pckName}"  |
+        EFFICIENT_SHELL_TrimSpaces
+    )"
+
+    test -n "${outputString}"
+    return $?
+}
+
 # Outputs information about a given package
 function EFFICIENT_SHELL_GetPackageInfo() {  # <pckName> [<infoName>]
     local pckName="$1"
@@ -259,7 +284,14 @@ function EFFICIENT_SHELL_BuildDependencyGraph() {  # <pck> [<pck>...]
     local pckName
     for pckName in "$@" ; do
 
-        #EFFICIENT_SHELL_Log "Processing [${pckName}]"
+        ## add the package's "vertex"
+
+        # pairs of identical items indicate presence of a vertex, but not ordering
+        # so the following represents one vertex (without edges yet)
+        # https://en.wikipedia.org/wiki/Tsort#Usage_notes
+        dependencyGraph+=$'\n'"${pckName} ${pckName}"
+
+        ## add the dependencies' "edges"
 
         # get the dependency list in the form "dep1 dep2 ..."
         # this way, it can be iterated over
@@ -269,27 +301,18 @@ function EFFICIENT_SHELL_BuildDependencyGraph() {  # <pck> [<pck>...]
             sed -e "s/${pckName}//" |
             EFFICIENT_SHELL_FactorAndTrimSpaces
         )"
-
-        #EFFICIENT_SHELL_Log "pckDepend [${pckDepend}]"
-
         # this package has dependencies
         if [ -n "${pckDepend}" ] ; then
-            # parse the package's dependency list
-            # the goal is get it in the form:
+            # create the package's dependency "edges"
+            # the goal is get a list the form:
             #   dep1 this_package
             #   dep2 this_package
             #   ...
-            for d in ${pckDepend} ; do  # don't use "${depend}"  (i.e. no quotes)
-                # append the dependency list to the dependency graph
+            for d in ${pckDepend} ; do  # don't use "${pckDepend}"  (i.e. no quotes)
                 dependencyGraph+=$'\n'"${d} ${pckName}"
             done
-        # this package doesn't have dependencies
-        else
-            # https://en.wikipedia.org/wiki/Tsort#Usage_notes
-            # Pairs of identical items indicate presence of a vertex, but not ordering
-            # (so the following represents one vertex without edges):
-            dependencyGraph+=$'\n'"${pckName} ${pckName}"
         fi
+
     done
 
     echo "${dependencyGraph}"
@@ -314,11 +337,8 @@ function EFFICIENT_SHELL_CheckPackages() {  # <pck> [<pck>...]
     # call the function on each package directory
     local pckName
     for pckName in "$@" ; do
-        local pckInfo
-        pckInfo="$(EFFICIENT_SHELL_GetPackageInfo "${pckName}")"
-        if [ -z "${pckInfo}" ] ; then
+        if ! EFFICIENT_SHELL_PackageInstalled "${pckName}" ; then
             missingPackages+=$'\n'"${pckName}"
-            #EFFICIENT_SHELL_Error "missing [${pckName}]"
         fi
     done
 

@@ -176,8 +176,7 @@ EndOfUsage
     esac
 }
 
-j_ProgrammableCompletion()
-{
+function j_ProgrammableCompletion() {
     # http://eli.thegreenplace.net/2013/12/26/adding-bash-completion-for-your-own-tools-an-example-for-pss
 
     # COMP_WORDS is an array of words in the current command line.
