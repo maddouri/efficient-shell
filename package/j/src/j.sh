@@ -229,7 +229,7 @@ function j_ProgrammableCompletion() {
         [[ -e ${files[0]} ]] && COMPREPLY=( "${files[@]// /\ }" )
     # j <entry> (${current_word} = <relative path at entry>)
     elif [ ${current_index} -eq 2 ] && \
-         [ $(grep "${previous_word}" <<< "${bookmarks}") ] ; then  # <entry> has to be valid
+         [ "$(grep "${previous_word}" <<< "${bookmarks}")" ] ; then  # <entry> has to be valid
         #
         local entryPath=$(j "${previous_word}" >/dev/null 2>&1 && pwd && cd - >/dev/null 2>&1)
         COMPREPLY=( $(
@@ -241,7 +241,7 @@ function j_ProgrammableCompletion() {
             #     if current_word is a directory, it returns current_word (not its parent)
             #     if current_word is empty, returns entryPath
             #     otherwise, returns the usual dirname
-            for f in "$(dirname ${current_word}nothing)"/* ; do
+            for f in "$(dirname "${current_word}nothing")"/* ; do
                 # append "/" at the end of a directory names
                 # add nothing to other names
                 if [ -d "${f}" ] ; then
